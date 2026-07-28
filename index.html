@@ -85,6 +85,10 @@ footer .note2{min-width:0}
       <input id="siteName" placeholder="用紙の上に印刷されます">
     </div>
     <div class="grp">
+      <span class="lbl">地図</span>
+      <button id="btnPasteMap" class="primary" title="切り取った地図を、キーボードを使わずに用紙へ貼り付けます（Ctrl+V と同じ働きです）">📋 地図を貼り付ける</button>
+    </div>
+    <div class="grp">
       <span class="lbl">ファイル</span>
       <button id="btnMap" class="primary">🗺 地図を読み込む</button>
       <button id="btnOpen">📂 開く</button>
@@ -250,7 +254,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='2.0';
+const APP_VERSION='2.1';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -505,31 +509,41 @@ function armTray(on){
     : 'ここをクリックしてから<br><kbd>Ctrl</kbd>+<kbd>V</kbd> で写真を貼り付け<br><small>（画像のドラッグ＆ドロップも可）</small>';
 }
 dropZone.onclick=()=>armTray(true);
-/* 「ここに貼り付ける」ボタン。Ctrl+V を押さなくても、切り取った写真を取り込めます。
-   ブラウザにクリップボードを読ませるので、初回は許可を聞かれることがあります */
-document.getElementById('btnPasteHere').onclick=async ()=>{
-  armTray(true);
+/* クリップボードから画像を1枚取り出します。Ctrl+V を押さずに貼り付けるための下ごしらえで、
+   「地図を貼り付ける」と「ここに貼り付ける」の両方から使います。
+   ブラウザにクリップボードを読ませるので、初回は許可を聞かれることがあります。
+   取り出せないときは、理由と今までのやり方（Ctrl+V）を知らせて null を返します */
+async function readClipboardImage(where){
   if(!(navigator.clipboard&&navigator.clipboard.read)){
-    setHint('このブラウザではボタンから貼り付けできません。上の枠をクリックしてから Ctrl+V を押してください。');
-    alert('このブラウザでは、ボタンからの貼り付けに対応していません。\n\n上の枠をクリックしてから、キーボードの Ctrl+V を押してください。');
-    return;
+    setHint('このブラウザではボタンから貼り付けできません。'+where+'をクリックしてから Ctrl+V を押してください。');
+    alert('このブラウザでは、ボタンからの貼り付けに対応していません。\n\n'+where+'をクリックしてから、キーボードの Ctrl+V を押してください。');
+    return null;
   }
   try{
     const items=await navigator.clipboard.read();
     for(const it of items){
       const type=(it.types||[]).find(t=>t.indexOf('image/')===0);
-      if(type){
-        const src=await fileToDataURL(await it.getType(type));
-        await addTrayPhoto(src);
-        return;
-      }
+      if(type)return await fileToDataURL(await it.getType(type));
     }
-    setHint('切り取った写真が見つかりませんでした。Win+Shift+S で画面を切り取ってから、もう一度押してください。');
-    alert('切り取った写真が見つかりませんでした。\n\nWin+Shift+S で画面の範囲を切り取ってから、もう一度このボタンを押してください。');
+    setHint('切り取った画像が見つかりませんでした。Win+Shift+S で切り取ってから、もう一度押してください。');
+    alert('切り取った画像が見つかりませんでした。\n\nWin+Shift+S で画面の範囲を切り取ってから、もう一度このボタンを押してください。');
   }catch(err){
-    setHint('貼り付けできませんでした。上の枠をクリックしてから Ctrl+V を押してください。');
-    alert('貼り付けできませんでした。\n\nブラウザから「クリップボードの読み取り」を聞かれたら〔許可〕を選んでください。\n許可が出ない場合は、上の枠をクリックしてから Ctrl+V を押してください。');
+    setHint('貼り付けできませんでした。'+where+'をクリックしてから Ctrl+V を押してください。');
+    alert('貼り付けできませんでした。\n\nブラウザから「クリップボードの読み取り」を聞かれたら〔許可〕を選んでください。\n許可が出ない場合は、'+where+'をクリックしてから Ctrl+V を押してください。');
   }
+  return null;
+}
+/* 切り取った地図を、用紙に貼り付けます */
+document.getElementById('btnPasteMap').onclick=async ()=>{
+  armTray(false);
+  const src=await readClipboardImage('用紙');
+  if(src)await loadMapWithConfirm(src);
+};
+/* 切り取った写真を、差し込み用写真として取り込みます */
+document.getElementById('btnPasteHere').onclick=async ()=>{
+  armTray(true);
+  const src=await readClipboardImage('上の枠');
+  if(src)await addTrayPhoto(src);
 };
 document.getElementById('btnPhotoFile').onclick=()=>{ armTray(true); filePhoto.click(); };
 document.getElementById('side').addEventListener('pointerdown',()=>armTray(true));
