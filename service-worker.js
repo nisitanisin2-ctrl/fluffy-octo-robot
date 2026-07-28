@@ -1,7 +1,7 @@
 /* 現場経路作成アプリ － オフライン用サービスワーカー
    アプリ本体を書き換えたら CACHE の日付部分を新しくしてください。
    （新しい名前にすると、古いキャッシュが捨てられて確実に更新されます） */
-const CACHE = 'genba-route-v1';
+const CACHE = 'genba-route-v2';
 
 const ASSETS = [
   './',

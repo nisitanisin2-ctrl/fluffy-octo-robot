@@ -16,14 +16,14 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{display:flex;flex-direction:column;font-family:"Segoe UI","Meiryo",system-ui,sans-serif;background:#4a4f57;font-size:14px}
-#toolbar{background:#fff;border-bottom:1px solid #ccc;padding:7px 8px;display:flex;flex-direction:column;gap:6px}
-.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
-.grp{display:flex;align-items:center;gap:4px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:4px 8px}
+#toolbar{background:#fff;border-bottom:1px solid #ccc;padding:5px 7px;display:flex;flex-direction:column;gap:5px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
+.grp{display:flex;align-items:center;gap:4px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:3px 6px}
 .grp>.lbl{font-size:11px;color:#78808d;white-space:nowrap;margin-right:2px}
 button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
 button:hover{background:#e9edf2}
 button:disabled{opacity:.45;cursor:default;background:#fff}
-.grp button{padding:5px 9px}
+.grp button{padding:4px 7px}
 button.tool.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary:hover{background:#1765cc}
@@ -33,7 +33,8 @@ button.primary:hover{background:#1765cc}
 .grp select{padding:4px}
 select,textarea,input[type=range]{font:inherit;padding:5px;border:1px solid #bbb;border-radius:6px;background:#fff}
 input[type=range]{padding:0}
-#hint{background:#fffbe6;border-bottom:1px solid #e8dfa8;color:#665c00;padding:4px 12px;min-height:26px}
+/* 道具の説明。画面の一番下（フッターのすぐ上）に小さく出します */
+#hint{flex:none;background:#fffbe6;border-top:1px solid #e8dfa8;color:#6b6000;padding:3px 12px;min-height:19px;font-size:11.5px;line-height:1.45}
 #main{flex:1;display:flex;min-height:0}
 #stage{flex:1;overflow:auto;position:relative;display:flex;align-items:flex-start;justify-content:center}
 #cv{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.45);margin:12px}
@@ -104,6 +105,15 @@ footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
       <span class="lbl">道具</span>
       <button class="tool" data-tool="select">🖱 選択</button>
       <button class="tool active" data-tool="arrow">➜ 矢印</button>
+      <button class="tool" data-tool="line" title="矢印の付かない線を引きます（区域の境目・う回路・敷地の区切りなど）">─ 罫線</button>
+      <select id="dashSel" title="罫線の種類を選びます（実線・破線・点線・鎖線）">
+        <option value="solid" selected>実線</option>
+        <option value="dash">破線</option>
+        <option value="longdash">長い破線</option>
+        <option value="dot">点線</option>
+        <option value="dashdot">一点鎖線</option>
+        <option value="dashdotdot">二点鎖線</option>
+      </select>
       <button class="tool" data-tool="pin">📍 番号</button>
       <button class="tool" data-tool="guard">👮 警備員</button>
       <button class="tool" data-tool="ellipse">◯ 丸</button>
@@ -148,7 +158,6 @@ footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
     </div>
   </div>
 </div>
-<div id="hint"></div>
 <div id="main">
   <div id="stage"><canvas id="cv"></canvas></div>
   <aside id="side">
@@ -213,6 +222,7 @@ footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
     </div>
   </aside>
 </div>
+<div id="hint"></div>
 <footer>地図画像は Googleマップ／Yahoo!地図 それぞれの利用規約の範囲内でご利用ください。青と橙の点線は画面上の目安で、印刷や画像保存には出ません。</footer>
 <input type="file" id="fileMap" accept="image/*" hidden>
 <input type="file" id="filePhoto" accept="image/*" multiple hidden>
@@ -225,6 +235,7 @@ const hintEl=document.getElementById('hint');
 const siteName=document.getElementById('siteName');
 const thickSel=document.getElementById('thick');
 const alphaSel=document.getElementById('alpha');
+const dashSel=document.getElementById('dashSel');
 const photoModeSel=document.getElementById('photoMode');
 const orientSel=document.getElementById('orient');
 const footRange=document.getElementById('footRange');
@@ -259,6 +270,7 @@ let tempShape=null, cascade=0, pasteTarget='map', exporting=false;
 const HINTS={
  select:'書き込みをクリックで選択、ドラッグで移動。右下の□で大きさ変更。矢印は角の□で形を直せます。下スペースの境目は、中央のつまみを上下にドラッグしても変えられます。',
  arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。Escで中止。',
+ line:'クリックで点を追加 → ダブルクリック（または右クリック／Enter）で線を確定。矢印の付かない線です。左の「線の種類」で実線・破線・点線などを選べます。Escで中止。',
  pin:'クリックした場所に番号ピン（1・2・3…）を置きます。',
  guard:'クリックした場所にガードマン（警備員）のピンを置きます。ダブルクリックで文字を変更できます。',
  ellipse:'目印にしたい場所をドラッグして丸で囲みます。',
@@ -285,6 +297,20 @@ function getMap(){ for(const o of objects) if(o.type==='map')return o; return nu
 /* ---------- サイズ計算 ---------- */
 function thickMul(){ return parseFloat(thickSel.value); }
 function alphaVal(){ return parseFloat(alphaSel.value); }
+function dashVal(){ return dashSel.value; }
+/* 矢印と罫線は「クリックで点を置いていく」同じ操作なので、まとめて判定します */
+function isPoly(t){ return t==='arrow'||t==='line'; }
+/* 線の種類。線の太さ w に合わせて刻みも太さ相応にします */
+function dashPattern(kind,w){
+  switch(kind){
+    case 'dash':       return [w*3.0,w*2.2];
+    case 'longdash':   return [w*7.0,w*2.8];
+    case 'dot':        return [w*0.05,w*2.0];
+    case 'dashdot':    return [w*4.5,w*1.9,w*0.05,w*1.9];
+    case 'dashdotdot': return [w*4.5,w*1.7,w*0.05,w*1.7,w*0.05,w*1.7];
+    default:           return [];
+  }
+}
 function lineW(o){ return Math.max(1,base*o.mul); }
 function pinR(o){ return base*2.2*o.mul; }
 function guardR(o){ return base*3.0*o.mul; }
@@ -471,8 +497,9 @@ function redraw(){
   if(tempShape){ ctx.save(); ctx.globalAlpha=0.75; (tempShape.type==='rect'?drawRect:drawEllipse)(tempShape); ctx.restore(); }
   if(drawing){
     const pts=drawing.points.concat(cursorPos?[cursorPos]:[]);
+    const prev={points:pts,mul:thickMul(),color:color,dash:dashVal()};
     ctx.save(); ctx.globalAlpha=0.75*alphaVal();
-    if(pts.length>=2)drawArrow({points:pts,mul:thickMul(),color:color});
+    if(pts.length>=2)(drawing.type==='line'?drawLine:drawArrow)(prev);
     else if(pts.length===1){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,base*0.7,0,7); ctx.fill(); }
     ctx.restore();
   }
@@ -627,6 +654,7 @@ function drawObj(o){
   ctx.globalAlpha=(o.alpha==null?1:o.alpha);
   switch(o.type){
     case 'arrow':drawArrow(o);break;
+    case 'line':drawLine(o);break;
     case 'pin':drawPin(o);break;
     case 'guard':drawGuard(o);break;
     case 'ellipse':drawEllipse(o);break;
@@ -636,11 +664,13 @@ function drawObj(o){
   }
   ctx.restore();
 }
-function strokePts(pts,w,col){
+function strokePts(pts,w,col,dash){
   ctx.strokeStyle=col; ctx.lineWidth=w; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.setLineDash(dash||[]);
   ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
   for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
   ctx.stroke();
+  ctx.setLineDash([]);
 }
 function halo(w){ return w+Math.max(3,w*0.8); }
 function fillHead(tip,ang,len,col){
@@ -665,6 +695,13 @@ function drawArrow(o){
   fillHead(tipW,ang,head+pad*2,'#ffffff');
   strokePts(shaft,w,o.color);
   fillHead(tip,ang,head,o.color);
+}
+/* 矢印の付かない線。矢印と同じく白フチ付きで、地図の上でも見やすくします */
+function drawLine(o){
+  const pts=o.points; if(pts.length<2)return;
+  const w=lineW(o), outer=halo(w), d=dashPattern(o.dash,w);
+  strokePts(pts,outer,'#ffffff',d);
+  strokePts(pts,w,o.color,d);
 }
 function drawBadge(x,y,r,num,col){
   ctx.beginPath(); ctx.arc(x,y,r,0,7);
@@ -774,7 +811,7 @@ function drawPhoto(o){
 function handleSize(){ return Math.max(14,18/scaleNow()); }
 function selPad(){ return handleSize()*0.4; }
 function handlePos(o){
-  if(o.type==='arrow')return null;
+  if(isPoly(o.type))return null;
   const b=getBBox(o), d=selPad()+handleSize()*0.5, m=handleSize()*0.6;
   // 地図は用紙いっぱいに広がるので、□は枠の内側に置く（外だと画面外で掴めない）
   if(o.type==='map')return {x:b.x+b.w-d,y:b.y+b.h-d};
@@ -798,7 +835,7 @@ function drawSelection(o){
   ctx.globalAlpha=1;
   ctx.strokeStyle='#1a73e8'; ctx.lineWidth=lw; ctx.setLineDash([4*lw,3*lw]);
   ctx.strokeRect(b.x-pad,b.y-pad,b.w+pad*2,b.h+pad*2);
-  if(o.type==='arrow'){ o.points.forEach(p=>drawHandle(p.x,p.y)); }
+  if(isPoly(o.type)){ o.points.forEach(p=>drawHandle(p.x,p.y)); }
   else{
     const h=handlePos(o); if(h)drawHandle(h.x,h.y);
     const t=tailPos(o); if(t)drawHandle(t.x,t.y,'#ffe08a');
@@ -813,7 +850,7 @@ function getBBox(o){
       const x2=Math.min(o.x+o.w,r.x+r.w), y2=Math.min(o.y+o.h,r.y+r.h);
       return {x:x,y:y,w:Math.max(10,x2-x),h:Math.max(10,y2-y)};
     }
-    case 'arrow':{
+    case 'arrow':case 'line':{
       const xs=o.points.map(p=>p.x),ys=o.points.map(p=>p.y);
       const x=Math.min.apply(null,xs),y=Math.min.apply(null,ys);
       return {x:x,y:y,w:Math.max.apply(null,xs)-x,h:Math.max.apply(null,ys)-y};
@@ -864,7 +901,7 @@ function hitObj(o,p){
       const inner=(p.x>=o.x+t&&p.x<=o.x+o.w-t&&p.y>=o.y+t&&p.y<=o.y+o.h-t);
       return outer&&!inner;
     }
-    case 'arrow':{
+    case 'arrow':case 'line':{
       for(let i=0;i<o.points.length-1;i++)
         if(distSeg(p,o.points[i],o.points[i+1])<=Math.max(tol,lineW(o)*0.8))return true;
       return false;
@@ -877,7 +914,7 @@ function hitTest(p){
   if(p.x>=t.x-8&&p.x<=t.x+t.w+8&&p.y>=t.y-8&&p.y<=t.y+t.h+8)return {obj:null,handle:'divider'};
   if(selected){
     const tol=handleSize()*0.5;
-    if(selected.type==='arrow'){
+    if(isPoly(selected.type)){
       for(let i=0;i<selected.points.length;i++){
         const q=selected.points[i];
         if(Math.abs(p.x-q.x)<=tol&&Math.abs(p.y-q.y)<=tol)return {obj:selected,handle:'pt',index:i};
@@ -898,7 +935,7 @@ function hitTest(p){
 }
 function moveObj(o,dx,dy){
   switch(o.type){
-    case 'arrow':o.points.forEach(pt=>{pt.x+=dx;pt.y+=dy;});break;
+    case 'arrow':case 'line':o.points.forEach(pt=>{pt.x+=dx;pt.y+=dy;});break;
     case 'ellipse':o.cx+=dx;o.cy+=dy;break;
     default:o.x+=dx;o.y+=dy;
   }
@@ -922,14 +959,18 @@ function syncStyleUI(){
   if(!selected)return;
   if(selected.mul!=null)thickSel.value=nearestOpt(thickSel,selected.mul);
   alphaSel.value=nearestOpt(alphaSel,selected.alpha==null?1:selected.alpha);
+  if(selected.type==='line'&&selected.dash)dashSel.value=selected.dash;
   if(selected.type==='photo'&&selected.mode)photoModeSel.value=selected.mode;
 }
+/* 矢印・罫線の確定 */
 function finalizeArrow(){
   if(!drawing)return;
-  const pts=drawing.points; drawing=null;
+  const pts=drawing.points, kind=drawing.type||'arrow'; drawing=null;
   if(pts.length>=2){
     pushUndo();
-    objects.push({type:'arrow',points:pts,mul:thickMul(),color:color,alpha:alphaVal()});
+    const o={type:kind,points:pts,mul:thickMul(),color:color,alpha:alphaVal()};
+    if(kind==='line')o.dash=dashVal();
+    objects.push(o);
   }
   redraw();
 }
@@ -1024,8 +1065,8 @@ cv.addEventListener('pointerup',()=>{
 });
 cv.addEventListener('click',e=>{
   const p=toCanvas(e);
-  if(tool==='arrow'){
-    if(!drawing)drawing={points:[]};
+  if(isPoly(tool)){
+    if(!drawing)drawing={points:[],type:tool};
     const pts=drawing.points;
     if(!pts.length||Math.hypot(p.x-pts[pts.length-1].x,p.y-pts[pts.length-1].y)>3)pts.push(p);
     redraw();
@@ -1048,7 +1089,7 @@ cv.addEventListener('click',e=>{
 });
 cv.addEventListener('dblclick',e=>{
   e.preventDefault();
-  if(tool==='arrow'){finalizeArrow();return;}
+  if(isPoly(tool)){finalizeArrow();return;}
   if(tool==='select'&&selected){
     if(selected.type==='text'){
       const t=prompt('文字を変更',selected.text);
@@ -1063,14 +1104,14 @@ cv.addEventListener('dblclick',e=>{
   }
 });
 cv.addEventListener('contextmenu',e=>{
-  if(tool==='arrow'&&drawing){e.preventDefault();finalizeArrow();}
+  if(isPoly(tool)&&drawing){e.preventDefault();finalizeArrow();}
 });
 window.addEventListener('keydown',e=>{
   const tag=(e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='textarea'||tag==='select')return;
   if(e.key==='Escape'){
     if(drawing){drawing=null;redraw();} else if(selected){selected=null;redraw();}
-  }else if(e.key==='Enter'){ if(tool==='arrow'&&drawing)finalizeArrow(); }
+  }else if(e.key==='Enter'){ if(isPoly(tool)&&drawing)finalizeArrow(); }
   else if(e.key==='Delete'||e.key==='Backspace'){ deleteSelected(); }
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!e.shiftKey){ e.preventDefault();undo(); }
   else if((e.ctrlKey||e.metaKey)&&(e.key.toLowerCase()==='y'||(e.key.toLowerCase()==='z'&&e.shiftKey))){ e.preventDefault();redo(); }
@@ -1095,6 +1136,11 @@ thickSel.addEventListener('change',()=>{
 });
 alphaSel.addEventListener('change',()=>{
   if(selected){ pushUndo(); selected.alpha=alphaVal(); redraw(); }
+});
+dashSel.addEventListener('change',()=>{
+  // 罫線を選んでいれば、その線の種類を変える。何も選んでいなければ次に引く線に使う
+  if(selected&&selected.type==='line'){ pushUndo(); selected.dash=dashVal(); redraw(); }
+  else if(tool==='line'&&drawing)redraw();
 });
 photoModeSel.addEventListener('change',()=>{
   if(selected&&selected.type==='photo'){
@@ -1308,11 +1354,12 @@ async function loadOldFormat(data){
 }
 function migrate(o){
   if(o.mul==null){
-    if(o.type==='arrow'||o.type==='ellipse')o.mul=(o.width||base)/base;
+    if(isPoly(o.type)||o.type==='ellipse')o.mul=(o.width||base)/base;
     else if(o.type==='text')o.mul=(o.size||base*3.2)/(base*3.2);
     else if(o.type!=='photo'&&o.type!=='map')o.mul=1;
   }
   if(o.alpha==null)o.alpha=1;
+  if(o.type==='line'&&!o.dash)o.dash='solid';
   if(o.type==='photo'&&!o.mode)o.mode='num';
   delete o.width; delete o.size;
   return o;
