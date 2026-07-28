@@ -17,18 +17,18 @@
 html,body{height:100%;margin:0}
 body{display:flex;flex-direction:column;font-family:"Segoe UI","Meiryo",system-ui,sans-serif;background:#4a4f57;font-size:14px}
 #toolbar{background:#fff;border-bottom:1px solid #ccc;padding:5px 7px;display:flex;flex-direction:column;gap:5px}
-.bar{display:flex;flex-wrap:wrap;gap:6px;align-items:stretch}
-.grp{display:flex;align-items:center;gap:4px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:3px 6px}
+.bar{display:flex;flex-wrap:wrap;gap:5px;align-items:stretch}
+.grp{display:flex;align-items:center;gap:3px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:3px 5px}
 .grp>.lbl{font-size:11px;color:#78808d;white-space:nowrap;margin-right:2px}
 button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
 button:hover{background:#e9edf2}
 button:disabled{opacity:.45;cursor:default;background:#fff}
-.grp button{padding:4px 7px}
+.grp button{padding:4px 5px}
 button.tool.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary:hover{background:#1765cc}
 #siteName{font:inherit;font-size:15px;padding:5px 9px;border:1px solid #bbb;border-radius:6px;width:320px}
-.swatch{width:24px;height:24px;border-radius:50%;border:2px solid #fff;outline:1px solid #999;cursor:pointer;padding:0}
+.swatch{width:21px;height:21px;border-radius:50%;border:2px solid #fff;outline:1px solid #999;cursor:pointer;padding:0}
 .swatch.active{outline:3px solid #1a73e8}
 .grp select{padding:4px}
 select,textarea,input[type=range]{font:inherit;padding:5px;border:1px solid #bbb;border-radius:6px;background:#fff}
@@ -120,6 +120,10 @@ footer .note2{min-width:0}
       <button class="tool" data-tool="guard">👮 警備員</button>
       <button class="tool" data-tool="ellipse">◯ 丸</button>
       <button class="tool" data-tool="rect">□ 四角</button>
+      <select id="rectTail" title="四角に、指したい場所を示す細いでっぱり（吹き出し）を付けます">
+        <option value="none" selected>枠だけ</option>
+        <option value="tail">吹き出し</option>
+      </select>
       <button class="tool" data-tool="text">✎ 文字</button>
     </div>
     <div class="grp">
@@ -133,13 +137,15 @@ footer .note2{min-width:0}
     <div class="grp">
       <span class="lbl">太さ</span>
       <select id="thick" title="線・文字・ピンの大きさ">
-        <option value="0.25">1 最も細い</option>
-        <option value="0.35">2 とても細い</option>
-        <option value="0.5">3 極細</option>
-        <option value="0.75">4 細い</option>
-        <option value="1" selected>5 標準</option>
-        <option value="1.5">6 太い</option>
-        <option value="2.2">7 極太</option>
+        <option value="0.12">1 極細</option>
+        <option value="0.18">2 とても細い</option>
+        <option value="0.25">3 かなり細い</option>
+        <option value="0.35">4 細い</option>
+        <option value="0.5" selected>5 標準</option>
+        <option value="0.7">6 やや太い</option>
+        <option value="1">7 太い</option>
+        <option value="1.5">8 とても太い</option>
+        <option value="2.2">9 極太</option>
       </select>
       <span class="lbl">濃さ</span>
       <select id="alpha" title="線・図形の透明度">
@@ -238,7 +244,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='1.4';
+const APP_VERSION='1.5';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -248,6 +254,7 @@ const siteName=document.getElementById('siteName');
 const thickSel=document.getElementById('thick');
 const alphaSel=document.getElementById('alpha');
 const dashSel=document.getElementById('dashSel');
+const rectTailSel=document.getElementById('rectTail');
 const photoModeSel=document.getElementById('photoMode');
 const orientSel=document.getElementById('orient');
 const footRange=document.getElementById('footRange');
@@ -286,7 +293,7 @@ const HINTS={
  pin:'クリックした場所に番号ピン（1・2・3…）を置きます。',
  guard:'クリックした場所にガードマン（警備員）のピンを置きます。ダブルクリックで文字を変更できます。',
  ellipse:'目印にしたい場所をドラッグして丸で囲みます。',
- rect:'目印にしたい場所をドラッグして四角で囲みます。',
+ rect:'目印にしたい場所をドラッグして四角で囲みます。すぐ右で「吹き出しあり」を選ぶと、指したい場所へ細いでっぱりが付きます（先端の黄色い□をドラッグして向きを変えられます）。',
  text:'クリックした場所に文字を入れます。あとから移動・拡大縮小できます。'
 };
 
@@ -310,6 +317,7 @@ function getMap(){ for(const o of objects) if(o.type==='map')return o; return nu
 function thickMul(){ return parseFloat(thickSel.value); }
 function alphaVal(){ return parseFloat(alphaSel.value); }
 function dashVal(){ return dashSel.value; }
+function rectTailOn(){ return rectTailSel.value==='tail'; }
 /* 矢印と罫線は「クリックで点を置いていく」同じ操作なので、まとめて判定します */
 function isPoly(t){ return t==='arrow'||t==='line'; }
 /* 線の種類。線の太さ w に合わせて刻みも太さ相応にします */
@@ -764,14 +772,41 @@ function drawEllipse(o){
   ctx.beginPath(); ctx.ellipse(o.cx,o.cy,o.rx,o.ry,0,0,7);
   ctx.lineWidth=w; ctx.strokeStyle=o.color; ctx.stroke();
 }
+/* 四角の吹き出し（でっぱり）。枠のふちから、指したい場所へ細い V 字を伸ばします */
+function rectTailPts(o){
+  if(!o.tail||o.tx==null||o.w<1||o.h<1)return null;
+  const cx=o.x+o.w/2, cy=o.y+o.h/2;
+  const dx=o.tx-cx, dy=o.ty-cy;
+  if(!dx&&!dy)return null;
+  const sx=dx?(o.w/2)/Math.abs(dx):Infinity;
+  const sy=dy?(o.h/2)/Math.abs(dy):Infinity;
+  const s=Math.min(sx,sy);
+  if(s>=1)return null;                        // 先端が枠の中なら出さない
+  const ex=cx+dx*s, ey=cy+dy*s;               // 枠のふちの、出っぱりの根元
+  const half=Math.max(lineW(o)*1.2,Math.min(o.w,o.h)*0.05);   // 細めの根元幅
+  // 根元の2点は枠のふちの上に置く（枠の中に線が入り込まないように）
+  const clamp=(v,lo,hi)=>Math.max(lo,Math.min(hi,v));
+  let a,b;
+  if(sx<sy){                                  // 左右のふちから出る → 縦に広げる
+    a={x:ex,y:clamp(ey-half,o.y,o.y+o.h)};
+    b={x:ex,y:clamp(ey+half,o.y,o.y+o.h)};
+  }else{                                      // 上下のふちから出る → 横に広げる
+    a={x:clamp(ex-half,o.x,o.x+o.w),y:ey};
+    b={x:clamp(ex+half,o.x,o.x+o.w),y:ey};
+  }
+  return [a,{x:o.tx,y:o.ty},b];
+}
 function drawRect(o){
   if(o.w<1||o.h<1)return;
   const w=lineW(o), rr=Math.min(o.w,o.h)*0.06;
   const path=()=>{ ctx.beginPath();
     if(ctx.roundRect)ctx.roundRect(o.x,o.y,o.w,o.h,rr); else ctx.rect(o.x,o.y,o.w,o.h); };
+  const tp=rectTailPts(o);
   ctx.lineJoin='round';
+  if(tp)strokePts(tp,halo(w),'#ffffff');
   path(); ctx.lineWidth=halo(w); ctx.strokeStyle='#fff'; ctx.stroke();
   path(); ctx.lineWidth=w; ctx.strokeStyle=o.color; ctx.stroke();
+  if(tp)strokePts(tp,w,o.color);
 }
 function drawText(o){
   const s=textSize(o);
@@ -830,6 +865,7 @@ function handlePos(o){
   return {x:Math.min(b.x+b.w+d,cv.width-m),y:Math.min(b.y+b.h+d,cv.height-m)};
 }
 function tailPos(o){
+  if(o.type==='rect')return (o.tail&&o.tx!=null)?{x:o.tx,y:o.ty}:null;
   return (o.type==='photo'&&o.mode==='callout'&&o.tx!=null)?{x:o.tx,y:o.ty}:null;
 }
 function anchorOf(o){ return (o.type==='ellipse')?{x:o.cx,y:o.cy}:{x:o.x,y:o.y}; }
@@ -972,6 +1008,7 @@ function syncStyleUI(){
   if(selected.mul!=null)thickSel.value=nearestOpt(thickSel,selected.mul);
   alphaSel.value=nearestOpt(alphaSel,selected.alpha==null?1:selected.alpha);
   if(selected.type==='line'&&selected.dash)dashSel.value=selected.dash;
+  if(selected.type==='rect')rectTailSel.value=selected.tail?'tail':'none';
   if(selected.type==='photo'&&selected.mode)photoModeSel.value=selected.mode;
 }
 /* 矢印・罫線の確定 */
@@ -1015,7 +1052,7 @@ cv.addEventListener('pointerdown',e=>{
   }else if(tool==='ellipse'||tool==='rect'){
     dragMode='shape'; dragStart=p;
     tempShape=(tool==='rect')
-      ? {type:'rect',x:p.x,y:p.y,w:1,h:1,mul:thickMul(),color:color,alpha:alphaVal()}
+      ? {type:'rect',x:p.x,y:p.y,w:1,h:1,mul:thickMul(),color:color,alpha:alphaVal(),tail:rectTailOn()}
       : {type:'ellipse',cx:p.x,cy:p.y,rx:1,ry:1,mul:thickMul(),color:color,alpha:alphaVal()};
     capturePointer(e);
   }
@@ -1069,7 +1106,11 @@ cv.addEventListener('pointermove',e=>{
 cv.addEventListener('pointerup',()=>{
   if(dragMode==='shape'&&tempShape){
     const big=(tempShape.type==='rect')?(tempShape.w>12&&tempShape.h>12):(tempShape.rx>8&&tempShape.ry>8);
-    if(big){ pushUndo(); objects.push(tempShape); selected=tempShape; setTool('select'); }
+    if(big){
+      // 吹き出しありの四角は、下あたりに出っぱりの先を置いてから確定する
+      if(tempShape.type==='rect'&&tempShape.tail){ const t=defaultTail(tempShape); tempShape.tx=t.x; tempShape.ty=t.y; }
+      pushUndo(); objects.push(tempShape); selected=tempShape; setTool('select');
+    }
     tempShape=null; redraw();
   }
   if(dragMode==='resize')syncStyleUI();
@@ -1153,6 +1194,15 @@ dashSel.addEventListener('change',()=>{
   // 罫線を選んでいれば、その線の種類を変える。何も選んでいなければ次に引く線に使う
   if(selected&&selected.type==='line'){ pushUndo(); selected.dash=dashVal(); redraw(); }
   else if(tool==='line'&&drawing)redraw();
+});
+rectTailSel.addEventListener('change',()=>{
+  // 四角を選んでいれば、その四角の吹き出しを付け外しする
+  if(selected&&selected.type==='rect'){
+    pushUndo();
+    selected.tail=rectTailOn();
+    if(selected.tail&&selected.tx==null){ const t=defaultTail(selected); selected.tx=t.x; selected.ty=t.y; }
+    redraw();
+  }
 });
 photoModeSel.addEventListener('change',()=>{
   if(selected&&selected.type==='photo'){
