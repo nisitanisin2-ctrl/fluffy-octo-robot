@@ -274,7 +274,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='2.5';
+const APP_VERSION='2.6';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -854,10 +854,16 @@ function stampSide(o){ return guardR(o)*2.2; }   /* 四角いアイコンの一�
 function drawStamp(o){
   const im=STAMPS[o.type], s=stampSide(o), x=o.x-s/2, y=o.y-s;
   const rad=s*0.16, bw=Math.max(1.5,s*0.045), pad=s*0.10;
-  ctx.beginPath();
-  if(ctx.roundRect)ctx.roundRect(x,y,s,s,rad); else ctx.rect(x,y,s,s);
-  ctx.fillStyle='#fff'; ctx.fill();
-  ctx.lineWidth=bw; ctx.strokeStyle=o.color; ctx.stroke();
+  const box=()=>{ ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(x,y,s,s,rad); else ctx.rect(x,y,s,s); };
+  if(im){
+    box(); ctx.fillStyle='#fff'; ctx.fill();       /* 絵のあるピンは白地に描きます */
+  }else{
+    /* 絵のないピン（現場）は中を透かして、地図が見えるようにします。
+       枠だけだと地図に紛れるので、外側に白いふちを付けます */
+    box(); ctx.lineWidth=bw*2.6; ctx.strokeStyle='#fff'; ctx.stroke();
+  }
+  box(); ctx.lineWidth=bw; ctx.strokeStyle=o.color; ctx.stroke();
   if(im&&im.ready)ctx.drawImage(stampPaint(im,o.color),x+pad,y+pad,s-pad*2,s-pad*2);
   pinLabel(o,guardR(o));
 }
