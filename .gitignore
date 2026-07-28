@@ -1,0 +1,17 @@
+# Claude Code のローカル設定（このPC専用なので公開しない）
+.claude/
+
+# 作業ファイル・現場の写真や地図
+# 公開リポジトリなので、現場の情報がうっかり上がらないよう除外しています。
+# 意図して画像を追加したいときは  git add -f ファイル名  で追加できます。
+*.route.json
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.bmp
+
+# Windows が作る一時ファイル
+Thumbs.db
+desktop.ini

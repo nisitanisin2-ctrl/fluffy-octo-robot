@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>現場経路作成アプリ</title>
+<style>
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{display:flex;flex-direction:column;font-family:"Segoe UI","Meiryo",system-ui,sans-serif;background:#4a4f57;font-size:14px}
+#toolbar{background:#fff;border-bottom:1px solid #ccc;padding:6px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#toolbar .sep{width:1px;align-self:stretch;background:#ddd;margin:0 4px}
+#toolbar strong{margin-right:4px}
+button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#f7f7f7;cursor:pointer;white-space:nowrap}
+button:hover{background:#eaeaea}
+button.tool.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
+button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
+button.primary:hover{background:#1765cc}
+#siteName{font:inherit;padding:6px 8px;border:1px solid #bbb;border-radius:6px;width:210px}
+.swatch{width:26px;height:26px;border-radius:50%;border:2px solid #fff;outline:1px solid #999;cursor:pointer;padding:0}
+.swatch.active{outline:3px solid #1a73e8}
+select{font:inherit;padding:5px;border:1px solid #bbb;border-radius:6px}
+#hint{background:#fffbe6;border-bottom:1px solid #e8dfa8;color:#665c00;padding:4px 12px;min-height:26px}
+#main{flex:1;display:flex;min-height:0}
+#stage{flex:1;overflow:auto;position:relative}
+#cv{display:none;background:#fff;box-shadow:0 2px 12px rgba(0,0,0,.4);margin:10px}
+#empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#eee}
+#empty .box{background:rgba(255,255,255,.08);border:2px dashed #aaa;border-radius:14px;padding:24px 34px;max-width:640px;line-height:2.0}
+#empty h2{margin-top:0}
+#empty kbd{background:#333;border:1px solid #777;border-radius:4px;padding:1px 7px}
+
+#tray{width:220px;flex:none;background:#fff;border-left:1px solid #ccc;display:flex;flex-direction:column;overflow:hidden}
+#trayHead{padding:8px 10px 6px;font-weight:bold;border-bottom:1px solid #eee}
+#dropZone{margin:10px;padding:14px 8px;border:2px dashed #bbb;border-radius:10px;text-align:center;color:#666;cursor:pointer;line-height:1.7;background:#fafafa}
+#dropZone.armed{border-color:#1a73e8;background:#eaf2fe;color:#14488f}
+#dropZone kbd{background:#333;color:#fff;border-radius:4px;padding:1px 6px;font-size:12px}
+#btnPhotoFile{margin:0 10px 10px}
+#trayList{flex:1;overflow-y:auto;padding:0 10px 10px}
+.titem{position:relative;margin-bottom:10px;border:1px solid #ddd;border-radius:8px;overflow:hidden;cursor:pointer;background:#fdfdfd}
+.titem:hover{border-color:#1a73e8;box-shadow:0 0 0 2px rgba(26,115,232,.25)}
+.titem img{display:block;width:100%;height:auto}
+.titem .cap{font-size:12px;color:#555;padding:3px 6px;background:#f4f4f4}
+.titem .del{position:absolute;top:4px;right:4px;width:22px;height:22px;line-height:1;padding:0;border-radius:50%;background:rgba(255,255,255,.9)}
+#trayFoot{font-size:12px;color:#666;padding:0 10px 10px;line-height:1.6}
+footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
+#printTitle{display:none}
+@media print{
+  #toolbar,#hint,footer,#empty,#tray{display:none!important}
+  body{background:#fff;display:block}
+  #main{display:block}
+  #stage{overflow:visible}
+  #cv{width:100%!important;height:auto!important;box-shadow:none;margin:0}
+  #printTitle{display:block;font-size:16pt;font-weight:bold;margin:0 0 8px 0;font-family:"Meiryo",sans-serif}
+}
+</style>
+</head>
+<body>
+<div id="toolbar">
+  <strong>現場経路図</strong>
+  <input id="siteName" placeholder="現場名（印刷タイトル・ファイル名）">
+  <button id="btnMap" class="primary">🗺 地図を読み込む</button>
+  <span class="sep"></span>
+  <button class="tool" data-tool="select">🖱 選択</button>
+  <button class="tool active" data-tool="arrow">➜ 矢印</button>
+  <button class="tool" data-tool="pin">📍 番号ピン</button>
+  <button class="tool" data-tool="guard">👮 ガードマン</button>
+  <button class="tool" data-tool="ellipse">◯ 丸囲み</button>
+  <button class="tool" data-tool="text">✎ 文字</button>
+  <span class="sep"></span>
+  <button class="swatch active" data-color="#e60012" style="background:#e60012" title="赤"></button>
+  <button class="swatch" data-color="#0068b7" style="background:#0068b7" title="青"></button>
+  <button class="swatch" data-color="#00a040" style="background:#00a040" title="緑"></button>
+  <button class="swatch" data-color="#f39800" style="background:#f39800" title="オレンジ"></button>
+  <button class="swatch" data-color="#111111" style="background:#111111" title="黒"></button>
+  <label>太さ
+    <select id="thick" title="線・文字・ピンの大きさ">
+      <option value="0.5">1 極細</option>
+      <option value="0.75">2 細い</option>
+      <option value="1" selected>3 標準</option>
+      <option value="1.5">4 太い</option>
+      <option value="2.2">5 極太</option>
+    </select>
+  </label>
+  <span class="sep"></span>
+  <button id="btnDel">🗑 削除</button>
+  <button id="btnUndo">↩ 元に戻す</button>
+  <button id="btnRedo">↪ やり直す</button>
+  <button id="btnClear">全消去</button>
+  <span class="sep"></span>
+  <button id="btnZoomOut">−</button>
+  <button id="btnZoomIn">＋</button>
+  <button id="btnFit">全体</button>
+  <span class="sep"></span>
+  <button id="btnOpen">📂 開く</button>
+  <button id="btnSaveProj">💾 保存</button>
+  <button id="btnPng">⬇ 画像で保存</button>
+  <button id="btnPrint">🖨 印刷</button>
+</div>
+<div id="hint"></div>
+<div id="main">
+  <div id="stage">
+    <div id="printTitle"></div>
+    <canvas id="cv"></canvas>
+    <div id="empty"><div class="box">
+      <h2>地図を取り込んで経路図を作りましょう</h2>
+      ① Googleマップ／Yahoo!地図で現場周辺を表示してスクリーンショットを撮る<br>
+      　（Windowsは <kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> で画面の範囲切り取り）<br>
+      ② この地図の欄で <kbd>Ctrl</kbd>+<kbd>V</kbd> を押して貼り付け<br>
+      ③ 「矢印」で道に沿ってクリック → ダブルクリックで確定<br>
+      ④ 曲がり角や入口の写真は、右の「差し込み用写真」に貼り付け<br>
+      ⑤ 「印刷」または「画像で保存」で完成
+    </div></div>
+  </div>
+  <aside id="tray">
+    <div id="trayHead">🖼 差し込み用写真</div>
+    <div id="dropZone">
+      ここをクリックしてから<br><kbd>Ctrl</kbd>+<kbd>V</kbd> で写真を貼り付け<br>
+      <small>（画像のドラッグ＆ドロップも可）</small>
+    </div>
+    <button id="btnPhotoFile">📁 ファイルから追加</button>
+    <div id="trayList"></div>
+    <div id="trayFoot">写真をクリックすると地図にもう1枚置けます。地図の上ではドラッグで移動、右下の□で大きさ変更。</div>
+  </aside>
+</div>
+<footer>地図画像は Googleマップ／Yahoo!地図 それぞれの利用規約の範囲内でご利用ください（画面の著作権表示ごとスクリーンショットに含めるのがおすすめです）。</footer>
+<input type="file" id="fileMap" accept="image/*" hidden>
+<input type="file" id="filePhoto" accept="image/*" multiple hidden>
+<input type="file" id="fileProj" accept=".json,application/json" hidden>
+<script>
+'use strict';
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+const stage=document.getElementById('stage'), emptyBox=document.getElementById('empty');
+const hintEl=document.getElementById('hint');
+const siteName=document.getElementById('siteName');
+const printTitle=document.getElementById('printTitle');
+const thickSel=document.getElementById('thick');
+const dropZone=document.getElementById('dropZone');
+const trayList=document.getElementById('trayList');
+const fileMap=document.getElementById('fileMap');
+const filePhoto=document.getElementById('filePhoto');
+const fileProj=document.getElementById('fileProj');
+
+let bg=null, bgSrc=null;
+let objects=[];
+let tray=[];                // 差し込み用写真 [{src,img}]
+let undoStack=[], redoStack=[];
+let tool='arrow';
+let color='#e60012';
+let base=8;                 // 地図の解像度から決まる基準サイズ
+let userZoom=1, fitScale=1;
+let drawing=null;
+let cursorPos=null;
+let selected=null;
+let dragMode=null, dragStart=null, dragIndex=-1, resizeRef=null;
+let preSnap=null, movedInDrag=false;
+let tempEllipse=null;
+let cascade=0;
+let pasteTarget='map';      // 'map' | 'tray'
+
+const HINTS={
+ select:'書き込みをクリックで選択、ドラッグで移動。右下の□で大きさ変更（文字・写真・ピン・丸）。矢印は角の□で形を直せます。ダブルクリックで文字や番号を変更。Deleteで削除。',
+ arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。Escで中止。',
+ pin:'クリックした場所に番号ピン（1・2・3…）を置きます。写真の番号と対応させると分かりやすくなります。',
+ guard:'クリックした場所にガードマン（警備員）のピンを置きます。ダブルクリックで「警備員」の文字を変更できます。',
+ ellipse:'目印にしたい場所をドラッグして丸で囲みます。',
+ text:'クリックした場所に文字を入れます。あとから移動・拡大縮小できます。'
+};
+
+/* ---------- サイズ計算 ---------- */
+function thickMul(){ return parseFloat(thickSel.value); }
+function lineW(o){ return Math.max(2,Math.round(base*o.mul)); }
+function pinR(o){ return base*2.2*o.mul; }
+function guardR(o){ return base*3.0*o.mul; }
+function textSize(o){ return Math.max(8,Math.round(base*3.2*o.mul)); }
+function setHint(msg){ hintEl.textContent=(msg!==undefined)?msg:(HINTS[tool]||''); }
+function scaleNow(){ return fitScale*userZoom; }
+function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
+function fileToDataURL(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); }); }
+function cloneObjects(){ return objects.map(o=>{ const c={...o}; if(o.points)c.points=o.points.map(p=>({x:p.x,y:p.y})); return c; }); }
+function pushUndo(){ undoStack.push(cloneObjects()); if(undoStack.length>100)undoStack.shift(); redoStack.length=0; }
+function undo(){ if(!undoStack.length)return; redoStack.push(cloneObjects()); objects=undoStack.pop(); selected=null; redraw(); }
+function redo(){ if(!redoStack.length)return; undoStack.push(cloneObjects()); objects=redoStack.pop(); selected=null; redraw(); }
+function toCanvas(e){ const r=cv.getBoundingClientRect(); return {x:(e.clientX-r.left)*cv.width/r.width, y:(e.clientY-r.top)*cv.height/r.height}; }
+function capturePointer(e){ try{cv.setPointerCapture(e.pointerId);}catch(err){} }
+function nextNum(kind){ let m=0; for(const o of objects) if(o.type===kind&&o.num) m=Math.max(m,o.num); return m+1; }
+function viewCenter(){
+  const s=scaleNow();
+  const x=(stage.scrollLeft+stage.clientWidth/2-10)/s;
+  const y=(stage.scrollTop+stage.clientHeight/2-10)/s;
+  return {x:Math.min(Math.max(x,0),cv.width), y:Math.min(Math.max(y,0),cv.height)};
+}
+
+/* ---------- 地図・写真の読み込み ---------- */
+async function setBackgroundFromSrc(src){
+  const im=await loadImage(src);
+  bg=im; bgSrc=src;
+  cv.width=im.naturalWidth; cv.height=im.naturalHeight;
+  base=Math.min(22,Math.max(5,Math.round(cv.width/160)));
+  objects=[]; undoStack=[]; redoStack=[]; selected=null; drawing=null; cascade=0;
+  cv.style.display='block'; emptyBox.style.display='none';
+  userZoom=1; computeFit(); redraw();
+}
+async function loadMapWithConfirm(src){
+  if(bg&&objects.length&&!confirm('新しい地図を読み込むと、今の書き込みは消えます。よろしいですか？'))return;
+  await setBackgroundFromSrc(src);
+}
+async function placePhoto(src,img){
+  if(!bg){ alert('先に地図を読み込んでください'); return null; }
+  const im=img||await loadImage(src);
+  const w=Math.round(cv.width/3.2), h=Math.round(w*im.naturalHeight/im.naturalWidth);
+  const c=viewCenter();
+  pushUndo();
+  const o={type:'photo',img:im,src:src,x:Math.round(c.x-w/2+cascade),y:Math.round(c.y-h/2+cascade),
+           w:w,h:h,num:nextNum('photo'),color:color};
+  cascade=(cascade+40)%160;
+  objects.push(o); selected=o; setTool('select'); redraw();
+  return o;
+}
+async function incomingImage(src){
+  if(!bg){ await setBackgroundFromSrc(src); return; }
+  if(confirm('貼り付けた画像を「新しい地図」として読み込みますか？\n\n［OK］新しい地図にする（今の書き込みは消えます）\n［キャンセル］差し込み写真にする')){
+    await setBackgroundFromSrc(src);
+  }else{
+    await addTrayPhoto(src,true);
+  }
+}
+
+/* ---------- 差し込み用写真トレイ ---------- */
+function renderTray(){
+  trayList.innerHTML='';
+  tray.forEach((t,i)=>{
+    const d=document.createElement('div');
+    d.className='titem';
+    d.title='クリックすると地図に置きます';
+    const im=document.createElement('img'); im.src=t.src; d.appendChild(im);
+    const cap=document.createElement('div'); cap.className='cap'; cap.textContent='写真 '+(i+1); d.appendChild(cap);
+    const del=document.createElement('button'); del.className='del'; del.textContent='✕'; del.title='この写真を一覧から外す';
+    del.onclick=ev=>{ ev.stopPropagation(); tray.splice(i,1); renderTray(); };
+    d.appendChild(del);
+    d.onclick=()=>{ placePhoto(t.src,t.img).then(o=>{ if(o)setHint('地図に写真を置きました。ドラッグで移動、右下の□で大きさ変更できます。'); }); };
+    trayList.appendChild(d);
+  });
+}
+async function addTrayPhoto(src,place){
+  const im=await loadImage(src);
+  tray.push({src:src,img:im});
+  renderTray();
+  if(place!==false&&bg){
+    await placePhoto(src,im);
+    setHint('地図に写真を置きました。ドラッグで移動、右下の□で大きさ変更できます。');
+  }else if(!bg){
+    setHint('写真を一覧に追加しました。地図を読み込んでから写真をクリックすると地図に置けます。');
+  }
+}
+function armTray(on){
+  pasteTarget=on?'tray':'map';
+  dropZone.classList.toggle('armed',on);
+  dropZone.innerHTML=on
+    ? '✅ 貼り付け先はここです<br><kbd>Ctrl</kbd>+<kbd>V</kbd> で写真を追加<br><small>（画像のドラッグ＆ドロップも可）</small>'
+    : 'ここをクリックしてから<br><kbd>Ctrl</kbd>+<kbd>V</kbd> で写真を貼り付け<br><small>（画像のドラッグ＆ドロップも可）</small>';
+}
+dropZone.onclick=()=>armTray(true);
+document.getElementById('btnPhotoFile').onclick=()=>{ armTray(true); filePhoto.click(); };
+document.getElementById('tray').addEventListener('pointerdown',()=>armTray(true));
+stage.addEventListener('pointerdown',()=>armTray(false));
+
+/* ---------- 描画 ---------- */
+function redraw(){
+  ctx.clearRect(0,0,cv.width,cv.height);
+  if(bg)ctx.drawImage(bg,0,0);
+  for(const o of objects)drawObj(o);
+  if(tempEllipse){ ctx.save(); ctx.globalAlpha=0.75; drawEllipse(tempEllipse); ctx.restore(); }
+  if(drawing){
+    const pts=drawing.points.concat(cursorPos?[cursorPos]:[]);
+    ctx.save(); ctx.globalAlpha=0.75;
+    if(pts.length>=2)drawArrow({points:pts,mul:thickMul(),color:color});
+    else if(pts.length===1){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,base*0.7,0,7); ctx.fill(); }
+    ctx.restore();
+  }
+  if(selected)drawSelection(selected);
+}
+function drawObj(o){
+  switch(o.type){
+    case 'arrow':drawArrow(o);break;
+    case 'pin':drawPin(o);break;
+    case 'guard':drawGuard(o);break;
+    case 'ellipse':drawEllipse(o);break;
+    case 'text':drawText(o);break;
+    case 'photo':drawPhoto(o);break;
+  }
+}
+function strokePts(pts,w,col){
+  ctx.strokeStyle=col; ctx.lineWidth=w; ctx.lineJoin='round'; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+  ctx.stroke();
+}
+function fillHead(tip,ang,len,col){
+  ctx.fillStyle=col; ctx.beginPath();
+  ctx.moveTo(tip.x,tip.y);
+  ctx.lineTo(tip.x-len*Math.cos(ang-0.42),tip.y-len*Math.sin(ang-0.42));
+  ctx.lineTo(tip.x-len*Math.cos(ang+0.42),tip.y-len*Math.sin(ang+0.42));
+  ctx.closePath(); ctx.fill();
+}
+function drawArrow(o){
+  const pts=o.points; if(pts.length<2)return;
+  const w=lineW(o), outer=w+Math.max(4,w*0.8);
+  const tip=pts[pts.length-1], prev=pts[pts.length-2];
+  const ang=Math.atan2(tip.y-prev.y,tip.x-prev.x);
+  const head=Math.max(14,w*3);
+  const segLen=Math.hypot(tip.x-prev.x,tip.y-prev.y);
+  const cut=Math.min(head*0.75,segLen*0.9);
+  const shaft=pts.slice(0,-1).concat([{x:tip.x-Math.cos(ang)*cut,y:tip.y-Math.sin(ang)*cut}]);
+  const pad=(outer-w)*0.9;
+  const tipW={x:tip.x+Math.cos(ang)*pad,y:tip.y+Math.sin(ang)*pad};
+  strokePts(shaft,outer,'#ffffff');
+  fillHead(tipW,ang,head+pad*2,'#ffffff');
+  strokePts(shaft,w,o.color);
+  fillHead(tip,ang,head,o.color);
+}
+function drawBadge(x,y,r,num,col){
+  ctx.beginPath(); ctx.arc(x,y,r,0,7);
+  ctx.fillStyle=col; ctx.fill();
+  ctx.lineWidth=Math.max(3,r*0.16); ctx.strokeStyle='#fff'; ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.font='bold '+Math.round(r*1.15)+'px "Meiryo",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText(String(num),x,y+r*0.06);
+}
+function drawPin(o){ drawBadge(o.x,o.y,pinR(o),o.num,o.color); }
+function drawGuard(o){
+  const r=guardR(o), cx=o.x, cy=o.y-r*1.414;
+  // ピンの外形（白フチ付きの雫型）
+  ctx.beginPath();
+  ctx.arc(cx,cy,r,0.75*Math.PI,0.25*Math.PI);
+  ctx.lineTo(o.x,o.y);
+  ctx.closePath();
+  ctx.lineJoin='round'; ctx.lineWidth=Math.max(3,r*0.22); ctx.strokeStyle='#fff'; ctx.stroke();
+  ctx.fillStyle=o.color; ctx.fill();
+  // 警備員のシルエット（白）
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#fff';
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.beginPath();                                                              // 体（肩から下）
+  ctx.moveTo(cx-0.40*r,cy+0.66*r);
+  ctx.lineTo(cx-0.26*r,cy+0.20*r);
+  ctx.quadraticCurveTo(cx,cy+0.06*r,cx+0.26*r,cy+0.20*r);
+  ctx.lineTo(cx+0.40*r,cy+0.66*r);
+  ctx.closePath(); ctx.fill();
+  ctx.lineWidth=0.13*r;                                                         // 上げた腕
+  ctx.beginPath(); ctx.moveTo(cx+0.17*r,cy+0.27*r); ctx.lineTo(cx+0.44*r,cy+0.00*r); ctx.stroke();
+  ctx.lineWidth=0.17*r;                                                         // 誘導棒
+  ctx.beginPath(); ctx.moveTo(cx+0.49*r,cy-0.20*r); ctx.lineTo(cx+0.72*r,cy-0.46*r); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy-0.16*r,0.175*r,0,7); ctx.fill();               // 顔
+  ctx.beginPath(); ctx.ellipse(cx,cy-0.35*r,0.38*r,0.085*r,0,0,7); ctx.fill();  // ヘルメットのつば
+  ctx.beginPath(); ctx.arc(cx,cy-0.37*r,0.24*r,Math.PI,0); ctx.fill();          // ヘルメット
+  ctx.strokeStyle=o.color; ctx.lineWidth=0.05*r;                                // つばと顔の境目
+  ctx.beginPath(); ctx.moveTo(cx-0.20*r,cy-0.30*r); ctx.lineTo(cx+0.20*r,cy-0.30*r); ctx.stroke();
+  if(o.label){
+    const s=Math.max(9,r*0.85);
+    ctx.font='bold '+Math.round(s)+'px "Meiryo",sans-serif';
+    ctx.textAlign='center'; ctx.textBaseline='top'; ctx.lineJoin='round';
+    ctx.lineWidth=Math.max(3,s/5); ctx.strokeStyle='#fff';
+    ctx.strokeText(o.label,o.x,o.y+s*0.35);
+    ctx.fillStyle=o.color; ctx.fillText(o.label,o.x,o.y+s*0.35);
+  }
+}
+function drawEllipse(o){
+  if(o.rx<1||o.ry<1)return;
+  const w=lineW(o);
+  ctx.beginPath(); ctx.ellipse(o.cx,o.cy,o.rx,o.ry,0,0,7);
+  ctx.lineWidth=w+Math.max(4,w*0.8); ctx.strokeStyle='#fff'; ctx.stroke();
+  ctx.beginPath(); ctx.ellipse(o.cx,o.cy,o.rx,o.ry,0,0,7);
+  ctx.lineWidth=w; ctx.strokeStyle=o.color; ctx.stroke();
+}
+function drawText(o){
+  const s=textSize(o);
+  ctx.font='bold '+s+'px "Meiryo",sans-serif';
+  ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.lineJoin='round';
+  ctx.lineWidth=Math.max(3,s/6); ctx.strokeStyle='#fff';
+  ctx.strokeText(o.text,o.x,o.y);
+  ctx.fillStyle=o.color; ctx.fillText(o.text,o.x,o.y);
+}
+function drawPhoto(o){
+  const bw=Math.max(4,base*0.6);
+  ctx.fillStyle='#fff';
+  ctx.fillRect(o.x-bw,o.y-bw,o.w+bw*2,o.h+bw*2);
+  ctx.drawImage(o.img,o.x,o.y,o.w,o.h);
+  if(o.num)drawBadge(o.x-bw,o.y-bw,Math.max(base*1.6,o.w*0.07),o.num,o.color||'#e60012');
+}
+
+/* ---------- 選択とハンドル ---------- */
+function handleSize(){ return Math.max(14,18/scaleNow()); }
+function selPad(){ return handleSize()*0.4; }
+function handlePos(o){
+  if(o.type==='arrow')return null;
+  // 図形の外側に離して置く（小さい図形でも「つかんで動かす」操作を奪わないため）
+  const b=getBBox(o), d=selPad()+handleSize()*0.5;
+  return {x:b.x+b.w+d,y:b.y+b.h+d};
+}
+function anchorOf(o){ return (o.type==='ellipse')?{x:o.cx,y:o.cy}:{x:o.x,y:o.y}; }
+function drawHandle(x,y){
+  const hs=handleSize(), lw=Math.max(2,3/scaleNow());
+  ctx.setLineDash([]);
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#1a73e8'; ctx.lineWidth=lw;
+  ctx.fillRect(x-hs/2,y-hs/2,hs,hs);
+  ctx.strokeRect(x-hs/2,y-hs/2,hs,hs);
+}
+function drawSelection(o){
+  const b=getBBox(o); if(!b)return;
+  const lw=Math.max(2,3/scaleNow()), pad=selPad();
+  ctx.save();
+  ctx.strokeStyle='#1a73e8'; ctx.lineWidth=lw; ctx.setLineDash([4*lw,3*lw]);
+  ctx.strokeRect(b.x-pad,b.y-pad,b.w+pad*2,b.h+pad*2);
+  if(o.type==='arrow'){
+    o.points.forEach(p=>drawHandle(p.x,p.y));
+  }else{
+    const h=handlePos(o);
+    if(h)drawHandle(h.x,h.y);
+  }
+  ctx.restore();
+}
+function getBBox(o){
+  switch(o.type){
+    case 'arrow':{
+      const xs=o.points.map(p=>p.x),ys=o.points.map(p=>p.y);
+      const x=Math.min.apply(null,xs),y=Math.min.apply(null,ys);
+      return {x:x,y:y,w:Math.max.apply(null,xs)-x,h:Math.max.apply(null,ys)-y};
+    }
+    case 'pin':{const r=pinR(o);return {x:o.x-r,y:o.y-r,w:r*2,h:r*2};}
+    case 'guard':{
+      const r=guardR(o), lab=o.label?r*1.2:0;
+      return {x:o.x-r,y:o.y-r*2.414,w:r*2,h:r*2.414+lab};
+    }
+    case 'ellipse':return {x:o.cx-o.rx,y:o.cy-o.ry,w:o.rx*2,h:o.ry*2};
+    case 'text':{
+      const s=textSize(o);
+      ctx.font='bold '+s+'px "Meiryo",sans-serif';
+      const w=ctx.measureText(o.text).width;
+      return {x:o.x-4,y:o.y-s*0.7,w:w+8,h:s*1.4};
+    }
+    case 'photo':{
+      const bw=Math.max(4,base*0.6);
+      return {x:o.x-bw,y:o.y-bw,w:o.w+bw*2,h:o.h+bw*2};
+    }
+  }
+}
+
+/* ---------- 当たり判定・移動 ---------- */
+function distSeg(p,a,b){
+  const dx=b.x-a.x,dy=b.y-a.y,L2=dx*dx+dy*dy;
+  if(!L2)return Math.hypot(p.x-a.x,p.y-a.y);
+  let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/L2; t=Math.max(0,Math.min(1,t));
+  return Math.hypot(p.x-(a.x+dx*t),p.y-(a.y+dy*t));
+}
+function inBBox(o,p){
+  const b=getBBox(o);
+  return p.x>=b.x&&p.x<=b.x+b.w&&p.y>=b.y&&p.y<=b.y+b.h;
+}
+function hitObj(o,p){
+  const tol=Math.max(10,12/scaleNow());
+  switch(o.type){
+    case 'photo':case 'text':case 'guard':return inBBox(o,p);
+    case 'pin':return Math.hypot(p.x-o.x,p.y-o.y)<=pinR(o)+tol/2;
+    case 'ellipse':{
+      if(o.rx<1||o.ry<1)return false;
+      const v=Math.hypot((p.x-o.cx)/o.rx,(p.y-o.cy)/o.ry);
+      return Math.abs(v-1)*Math.min(o.rx,o.ry)<=Math.max(tol,lineW(o));
+    }
+    case 'arrow':{
+      for(let i=0;i<o.points.length-1;i++)
+        if(distSeg(p,o.points[i],o.points[i+1])<=Math.max(tol,lineW(o)*0.8))return true;
+      return false;
+    }
+  }
+  return false;
+}
+function hitTest(p){
+  if(selected){
+    const tol=handleSize()*0.5;             // 当たり範囲＝表示されている□の大きさ
+    if(selected.type==='arrow'){
+      for(let i=0;i<selected.points.length;i++){
+        const q=selected.points[i];
+        if(Math.abs(p.x-q.x)<=tol&&Math.abs(p.y-q.y)<=tol)return {obj:selected,handle:'pt',index:i};
+      }
+    }else{
+      const h=handlePos(selected);
+      if(h&&Math.abs(p.x-h.x)<=tol&&Math.abs(p.y-h.y)<=tol)return {obj:selected,handle:'resize'};
+    }
+  }
+  for(let i=objects.length-1;i>=0;i--)
+    if(hitObj(objects[i],p))return {obj:objects[i],handle:null};
+  return {obj:null,handle:null};
+}
+function moveObj(o,dx,dy){
+  switch(o.type){
+    case 'arrow':o.points.forEach(pt=>{pt.x+=dx;pt.y+=dy;});break;
+    case 'ellipse':o.cx+=dx;o.cy+=dy;break;
+    default:o.x+=dx;o.y+=dy;
+  }
+}
+function deleteSelected(){
+  if(!selected)return;
+  pushUndo();
+  objects=objects.filter(o=>o!==selected);
+  selected=null; redraw();
+}
+function syncThickUI(){
+  if(!selected||selected.mul==null)return;
+  let best=null;
+  for(const op of thickSel.options){
+    const v=parseFloat(op.value);
+    if(best===null||Math.abs(v-selected.mul)<Math.abs(best-selected.mul))best=v;
+  }
+  thickSel.value=String(best);
+}
+
+/* ---------- 矢印の確定 ---------- */
+function finalizeArrow(){
+  if(!drawing)return;
+  const pts=drawing.points;
+  drawing=null;
+  if(pts.length>=2){
+    pushUndo();
+    objects.push({type:'arrow',points:pts,mul:thickMul(),color:color});
+  }
+  redraw();
+}
+
+/* ---------- ポインタ操作 ---------- */
+cv.addEventListener('pointerdown',e=>{
+  if(!bg||e.button!==0)return;
+  const p=toCanvas(e);
+  cursorPos=p;
+  if(tool==='select'){
+    const h=hitTest(p);
+    preSnap=cloneObjects(); movedInDrag=false;
+    if(h.obj){
+      selected=h.obj;
+      dragStart=p;
+      if(h.handle==='pt'){ dragMode='pt'; dragIndex=h.index; }
+      else if(h.handle==='resize'){
+        dragMode='resize';
+        const a=anchorOf(selected), hp=handlePos(selected);
+        resizeRef={mul:selected.mul,w:selected.w,rx:selected.rx,ry:selected.ry,
+                   px:p.x,py:p.y,gx:p.x-hp.x,gy:p.y-hp.y,
+                   dist:Math.max(1,Math.hypot(hp.x-a.x,hp.y-a.y))};
+      }else dragMode='move';
+      capturePointer(e);
+      syncThickUI();
+    }else{
+      selected=null; dragMode=null;
+    }
+    redraw();
+  }else if(tool==='ellipse'){
+    dragMode='ellipse'; dragStart=p;
+    tempEllipse={type:'ellipse',cx:p.x,cy:p.y,rx:1,ry:1,mul:thickMul(),color:color};
+    capturePointer(e);
+  }
+});
+cv.addEventListener('pointermove',e=>{
+  if(!bg)return;
+  const p=toCanvas(e);
+  cursorPos=p;
+  const snap=()=>{ if(!movedInDrag){undoStack.push(preSnap);redoStack.length=0;movedInDrag=true;} };
+  if(dragMode==='move'&&selected){
+    snap();
+    moveObj(selected,p.x-dragStart.x,p.y-dragStart.y);
+    dragStart=p; redraw();
+  }else if(dragMode==='pt'&&selected){
+    snap();
+    selected.points[dragIndex]={x:p.x,y:p.y};
+    redraw();
+  }else if(dragMode==='resize'&&selected){
+    snap();
+    const o=selected, r=resizeRef;
+    if(o.type==='photo'){
+      const w=Math.max(40,r.w+(p.x-r.px));
+      o.w=w; o.h=w*o.img.naturalHeight/o.img.naturalWidth;
+    }else if(o.type==='ellipse'){
+      o.rx=Math.max(6,r.rx+(p.x-r.px));
+      o.ry=Math.max(6,r.ry+(p.y-r.py));
+    }else{
+      const a=anchorOf(o);
+      const d=Math.hypot(p.x-r.gx-a.x,p.y-r.gy-a.y);
+      o.mul=Math.min(10,Math.max(0.15,r.mul*d/r.dist));
+    }
+    redraw();
+  }else if(dragMode==='ellipse'&&tempEllipse){
+    tempEllipse.cx=(dragStart.x+p.x)/2; tempEllipse.cy=(dragStart.y+p.y)/2;
+    tempEllipse.rx=Math.abs(p.x-dragStart.x)/2; tempEllipse.ry=Math.abs(p.y-dragStart.y)/2;
+    redraw();
+  }else if(drawing){
+    redraw();
+  }
+});
+cv.addEventListener('pointerup',()=>{
+  if(dragMode==='ellipse'&&tempEllipse){
+    if(tempEllipse.rx>8&&tempEllipse.ry>8){ pushUndo(); objects.push(tempEllipse); selected=tempEllipse; }
+    tempEllipse=null; redraw();
+  }
+  if(dragMode==='resize')syncThickUI();
+  dragMode=null; dragIndex=-1;
+});
+cv.addEventListener('click',e=>{
+  if(!bg)return;
+  const p=toCanvas(e);
+  if(tool==='arrow'){
+    if(!drawing)drawing={points:[]};
+    const pts=drawing.points;
+    if(!pts.length||Math.hypot(p.x-pts[pts.length-1].x,p.y-pts[pts.length-1].y)>3)pts.push(p);
+    redraw();
+  }else if(tool==='pin'){
+    pushUndo();
+    objects.push({type:'pin',x:p.x,y:p.y,num:nextNum('pin'),mul:thickMul(),color:color});
+    redraw();
+  }else if(tool==='guard'){
+    pushUndo();
+    objects.push({type:'guard',x:p.x,y:p.y,label:'警備員',mul:thickMul(),color:color});
+    redraw();
+  }else if(tool==='text'){
+    const t=prompt('表示する文字を入力してください','この先 入口');
+    if(t){
+      pushUndo();
+      objects.push({type:'text',x:p.x,y:p.y,text:t,mul:thickMul(),color:color});
+      redraw();
+    }
+  }
+});
+cv.addEventListener('dblclick',e=>{
+  if(!bg)return;
+  e.preventDefault();
+  if(tool==='arrow'){finalizeArrow();return;}
+  if(tool==='select'&&selected){
+    if(selected.type==='text'){
+      const t=prompt('文字を変更',selected.text);
+      if(t!==null&&t!=='')  {pushUndo();selected.text=t;redraw();}
+    }else if(selected.type==='guard'){
+      const t=prompt('ガードマンの文字を変更（空欄にすると文字なし）',selected.label);
+      if(t!==null){pushUndo();selected.label=t;redraw();}
+    }else if(selected.type==='pin'||selected.type==='photo'){
+      const n=parseInt(prompt('番号を変更',selected.num),10);
+      if(!isNaN(n)){pushUndo();selected.num=n;redraw();}
+    }
+  }
+});
+cv.addEventListener('contextmenu',e=>{
+  if(tool==='arrow'&&drawing){e.preventDefault();finalizeArrow();}
+});
+
+/* ---------- キーボード ---------- */
+window.addEventListener('keydown',e=>{
+  const tag=(e.target.tagName||'').toLowerCase();
+  if(tag==='input'||tag==='textarea'||tag==='select')return;
+  if(e.key==='Escape'){
+    if(drawing){drawing=null;redraw();}
+    else if(selected){selected=null;redraw();}
+  }else if(e.key==='Enter'){
+    if(tool==='arrow'&&drawing)finalizeArrow();
+  }else if(e.key==='Delete'||e.key==='Backspace'){
+    deleteSelected();
+  }else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!e.shiftKey){
+    e.preventDefault();undo();
+  }else if((e.ctrlKey||e.metaKey)&&(e.key.toLowerCase()==='y'||(e.key.toLowerCase()==='z'&&e.shiftKey))){
+    e.preventDefault();redo();
+  }
+});
+
+/* ---------- ツール・色・太さ ---------- */
+function setTool(t){
+  tool=t;
+  drawing=null;
+  if(t!=='select')selected=null;
+  document.querySelectorAll('.tool').forEach(b=>b.classList.toggle('active',b.dataset.tool===t));
+  cv.style.cursor=(t==='select')?'default':'crosshair';
+  setHint();
+  if(bg)redraw();
+}
+document.querySelectorAll('.tool').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
+document.querySelectorAll('.swatch').forEach(b=>b.addEventListener('click',()=>{
+  color=b.dataset.color;
+  document.querySelectorAll('.swatch').forEach(s=>s.classList.toggle('active',s===b));
+  if(selected){pushUndo();selected.color=color;redraw();}
+}));
+thickSel.addEventListener('change',()=>{
+  if(selected&&selected.mul!=null){
+    pushUndo(); selected.mul=thickMul(); redraw();
+  }
+});
+
+/* ---------- ボタン ---------- */
+document.getElementById('btnMap').onclick=()=>{ armTray(false); fileMap.click(); };
+fileMap.onchange=async()=>{
+  const f=fileMap.files[0]; fileMap.value='';
+  if(f)await loadMapWithConfirm(await fileToDataURL(f));
+};
+filePhoto.onchange=async()=>{
+  const fs=Array.prototype.slice.call(filePhoto.files); filePhoto.value='';
+  for(const f of fs)await addTrayPhoto(await fileToDataURL(f),fs.length===1);
+};
+document.getElementById('btnDel').onclick=deleteSelected;
+document.getElementById('btnUndo').onclick=undo;
+document.getElementById('btnRedo').onclick=redo;
+document.getElementById('btnClear').onclick=()=>{
+  if(!objects.length)return;
+  if(confirm('すべての書き込みを消しますか？（地図と写真一覧は残ります）')){
+    pushUndo(); objects=[]; selected=null; drawing=null; redraw();
+  }
+};
+document.getElementById('btnZoomIn').onclick=()=>{userZoom=Math.min(userZoom*1.25,8);applyZoom();};
+document.getElementById('btnZoomOut').onclick=()=>{userZoom=Math.max(userZoom/1.25,0.2);applyZoom();};
+document.getElementById('btnFit').onclick=()=>{userZoom=1;computeFit();};
+document.getElementById('btnPng').onclick=()=>{
+  if(!bg){alert('地図が読み込まれていません');return;}
+  selected=null;drawing=null;redraw();
+  cv.toBlob(b=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download=(siteName.value||'現場経路図')+'.png';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  },'image/png');
+};
+document.getElementById('btnPrint').onclick=()=>{
+  if(!bg){alert('地図が読み込まれていません');return;}
+  selected=null;drawing=null;redraw();
+  printTitle.textContent=siteName.value?('現場経路図　'+siteName.value):'';
+  window.print();
+};
+document.getElementById('btnSaveProj').onclick=()=>{
+  if(!bg){alert('地図が読み込まれていません');return;}
+  const data={app:'genba-keiro',version:2,site:siteName.value,bgSrc:bgSrc,
+    tray:tray.map(t=>t.src),
+    objects:objects.map(o=>{const c={...o};delete c.img;return c;})};
+  const b=new Blob([JSON.stringify(data)],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(b);
+  a.download=(siteName.value||'現場経路図')+'.route.json';
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+};
+document.getElementById('btnOpen').onclick=()=>{ armTray(false); fileProj.click(); };
+fileProj.onchange=async()=>{
+  const f=fileProj.files[0]; fileProj.value='';
+  if(!f)return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(data.app!=='genba-keiro')throw new Error('bad file');
+    if(bg&&objects.length&&!confirm('現在の内容を破棄して開きますか？'))return;
+    await setBackgroundFromSrc(data.bgSrc);
+    siteName.value=data.site||'';
+    const objs=[];
+    for(const o of data.objects){
+      migrate(o);
+      if(o.type==='photo')o.img=await loadImage(o.src);
+      objs.push(o);
+    }
+    objects=objs;
+    tray=[];
+    for(const s of (data.tray||[]))tray.push({src:s,img:await loadImage(s)});
+    renderTray();
+    redraw();
+  }catch(err){
+    alert('ファイルを読み込めませんでした（このアプリの「保存」で作った .route.json を選んでください）');
+  }
+};
+function migrate(o){   // 旧バージョン(version 1)のファイル対応
+  if(o.mul==null){
+    if(o.type==='arrow'||o.type==='ellipse')o.mul=(o.width||base)/base;
+    else if(o.type==='text')o.mul=(o.size||base*3.2)/(base*3.2);
+    else o.mul=1;
+  }
+  delete o.width; delete o.size;
+  return o;
+}
+
+/* ---------- 貼り付け・ドロップ ---------- */
+window.addEventListener('paste',async e=>{
+  const items=e.clipboardData&&e.clipboardData.items;
+  if(!items)return;
+  for(const it of items){
+    if(it.type&&it.type.indexOf('image/')===0){
+      e.preventDefault();
+      const src=await fileToDataURL(it.getAsFile());
+      if(pasteTarget==='tray')await addTrayPhoto(src);
+      else await incomingImage(src);
+      return;
+    }
+  }
+});
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',async e=>{
+  e.preventDefault();
+  const fs=Array.prototype.slice.call(e.dataTransfer.files||[]).filter(f=>f.type.indexOf('image/')===0);
+  if(!fs.length)return;
+  const onTray=document.getElementById('tray').contains(e.target);
+  for(const f of fs){
+    const src=await fileToDataURL(f);
+    if(onTray)await addTrayPhoto(src,fs.length===1);
+    else if(!bg)await setBackgroundFromSrc(src);
+    else if(fs.length===1)await incomingImage(src);
+    else await addTrayPhoto(src,false);
+  }
+});
+
+/* ---------- 表示サイズ ---------- */
+function computeFit(){
+  if(!bg)return;
+  const availW=Math.max(stage.clientWidth-20,50), availH=Math.max(stage.clientHeight-20,50);
+  fitScale=Math.min(availW/cv.width,availH/cv.height,1);
+  if(!(fitScale>0))fitScale=1;
+  applyZoom();
+}
+function applyZoom(){
+  const s=scaleNow();
+  cv.style.width=Math.round(cv.width*s)+'px';
+  cv.style.height=Math.round(cv.height*s)+'px';
+}
+window.addEventListener('resize',computeFit);
+
+setTool('arrow');
+</script>
+</body>
+</html>
