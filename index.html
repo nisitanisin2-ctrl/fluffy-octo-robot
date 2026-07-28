@@ -24,6 +24,9 @@ button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;bac
 button:hover{background:#e9edf2}
 button:disabled{opacity:.45;cursor:default;background:#fff}
 .grp button{padding:4px 5px}
+/* 画面の表示（縮小・拡大・全体）は、押しやすいように大きめにします */
+.grp #btnZoomOut,.grp #btnZoomIn,.grp #btnFit{padding:7px 14px;font-size:16px;min-width:48px}
+.grp #btnZoomOut,.grp #btnZoomIn{font-size:22px;font-weight:bold;line-height:1}
 .grp select{padding:4px 2px}
 button.tool.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
@@ -112,10 +115,6 @@ footer .note2{min-width:0}
       <button id="btnZoomOut" title="縮小">−</button>
       <button id="btnZoomIn" title="拡大">＋</button>
       <button id="btnFit">全体</button>
-    </div>
-    <div class="grp" id="grpInstall" hidden>
-      <span class="lbl">アプリ</span>
-      <button id="btnInstall" class="primary" title="このパソコンにインストールします。デスクトップのアイコンから、ブラウザを開かずに使えるようになります">💻 パソコンに入れる</button>
     </div>
   </div>
   <div class="bar">
@@ -274,7 +273,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='2.6';
+const APP_VERSION='2.7';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -1663,42 +1662,16 @@ setTool('select');
 setHint();
 </script>
 
-<!-- ---------- パソコン／スマホへのインストール ---------- -->
+<!-- ---------- オフラインで使えるようにする仕組み ---------- -->
 <script>
 (function(){
-  /* オフラインでも使えるようにする仕組み。
-     ファイルを直接ダブルクリックで開いた場合（file://）は使えないので、その時は何もしません。 */
+  /* ファイルを直接ダブルクリックで開いた場合（file://）は使えないので、その時は何もしません。
+     インストールは、ブラウザのアドレス欄に出るインストールの印から行えます。 */
   if('serviceWorker' in navigator && location.protocol.startsWith('http')){
     window.addEventListener('load',function(){
       navigator.serviceWorker.register('service-worker.js').catch(function(){/* 使えなくても動作に支障なし */});
     });
   }
-
-  /* 「パソコンに入れる」ボタン。
-     ブラウザが「インストールできますよ」と教えてくれた時だけ出します。 */
-  var grp=document.getElementById('grpInstall'),
-      btn=document.getElementById('btnInstall'),
-      waiting=null;
-
-  window.addEventListener('beforeinstallprompt',function(e){
-    e.preventDefault();          // ブラウザ既定の案内を止めて、こちらのボタンで出す
-    waiting=e;
-    grp.hidden=false;
-  });
-
-  btn.addEventListener('click',async function(){
-    if(!waiting)return;
-    grp.hidden=true;
-    var p=waiting; waiting=null;
-    p.prompt();
-    var r=await p.userChoice.catch(function(){return {outcome:'dismissed'}});
-    if(r.outcome!=='accepted')grp.hidden=false;   // 断られたら、また押せるように戻す
-  });
-
-  window.addEventListener('appinstalled',function(){
-    waiting=null;
-    grp.hidden=true;
-  });
 })();
 </script>
 </body>
