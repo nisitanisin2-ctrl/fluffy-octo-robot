@@ -7,17 +7,21 @@
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{display:flex;flex-direction:column;font-family:"Segoe UI","Meiryo",system-ui,sans-serif;background:#4a4f57;font-size:14px}
-#toolbar{background:#fff;border-bottom:1px solid #ccc;padding:6px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-#toolbar .sep{width:1px;align-self:stretch;background:#ddd;margin:0 4px}
-#toolbar strong{margin-right:4px}
-button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#f7f7f7;cursor:pointer;white-space:nowrap}
-button:hover{background:#eaeaea}
+#toolbar{background:#fff;border-bottom:1px solid #ccc;padding:7px 8px;display:flex;flex-direction:column;gap:6px}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:stretch}
+.grp{display:flex;align-items:center;gap:4px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:4px 8px}
+.grp>.lbl{font-size:11px;color:#78808d;white-space:nowrap;margin-right:2px}
+button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
+button:hover{background:#e9edf2}
+button:disabled{opacity:.45;cursor:default;background:#fff}
+.grp button{padding:5px 9px}
 button.tool.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary:hover{background:#1765cc}
-#siteName{font:inherit;padding:6px 8px;border:1px solid #bbb;border-radius:6px;width:190px}
-.swatch{width:26px;height:26px;border-radius:50%;border:2px solid #fff;outline:1px solid #999;cursor:pointer;padding:0}
+#siteName{font:inherit;padding:5px 8px;border:1px solid #bbb;border-radius:6px;width:200px}
+.swatch{width:24px;height:24px;border-radius:50%;border:2px solid #fff;outline:1px solid #999;cursor:pointer;padding:0}
 .swatch.active{outline:3px solid #1a73e8}
+.grp select{padding:4px}
 select,textarea,input[type=range]{font:inherit;padding:5px;border:1px solid #bbb;border-radius:6px;background:#fff}
 input[type=range]{padding:0}
 #hint{background:#fffbe6;border-bottom:1px solid #e8dfa8;color:#665c00;padding:4px 12px;min-height:26px}
@@ -58,58 +62,77 @@ footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
 </head>
 <body>
 <div id="toolbar">
-  <strong>現場経路図</strong>
-  <input id="siteName" placeholder="現場名（用紙の上に印刷されます）">
-  <button id="btnMap" class="primary">🗺 地図を読み込む</button>
-  <span class="sep"></span>
-  <button class="tool" data-tool="select">🖱 選択</button>
-  <button class="tool active" data-tool="arrow">➜ 矢印</button>
-  <button class="tool" data-tool="pin">📍 番号ピン</button>
-  <button class="tool" data-tool="guard">👮 ガードマン</button>
-  <button class="tool" data-tool="ellipse">◯ 丸囲み</button>
-  <button class="tool" data-tool="rect">□ 四角囲み</button>
-  <button class="tool" data-tool="text">✎ 文字</button>
-  <span class="sep"></span>
-  <button class="swatch active" data-color="#e60012" style="background:#e60012" title="赤"></button>
-  <button class="swatch" data-color="#0068b7" style="background:#0068b7" title="青"></button>
-  <button class="swatch" data-color="#00a040" style="background:#00a040" title="緑"></button>
-  <button class="swatch" data-color="#f39800" style="background:#f39800" title="オレンジ"></button>
-  <button class="swatch" data-color="#111111" style="background:#111111" title="黒"></button>
-  <label>太さ
-    <select id="thick" title="線・文字・ピンの大きさ">
-      <option value="0.25">1 最も細い</option>
-      <option value="0.35">2 とても細い</option>
-      <option value="0.5">3 極細</option>
-      <option value="0.75">4 細い</option>
-      <option value="1" selected>5 標準</option>
-      <option value="1.5">6 太い</option>
-      <option value="2.2">7 極太</option>
-    </select>
-  </label>
-  <label>濃さ
-    <select id="alpha" title="線・図形の透明度">
-      <option value="1" selected>100%</option>
-      <option value="0.85">85%</option>
-      <option value="0.7">70%</option>
-      <option value="0.55">55%</option>
-      <option value="0.4">40%</option>
-      <option value="0.25">25%</option>
-    </select>
-  </label>
-  <span class="sep"></span>
-  <button id="btnDel">🗑 削除</button>
-  <button id="btnUndo">↩ 元に戻す</button>
-  <button id="btnRedo">↪ やり直す</button>
-  <button id="btnClear">全消去</button>
-  <span class="sep"></span>
-  <button id="btnZoomOut">−</button>
-  <button id="btnZoomIn">＋</button>
-  <button id="btnFit">全体</button>
-  <span class="sep"></span>
-  <button id="btnOpen">📂 開く</button>
-  <button id="btnSaveProj">💾 保存</button>
-  <button id="btnPng">⬇ 画像で保存</button>
-  <button id="btnPrint">🖨 印刷</button>
+  <div class="bar">
+    <div class="grp">
+      <span class="lbl">現場名</span>
+      <input id="siteName" placeholder="用紙の上に印刷されます">
+    </div>
+    <div class="grp">
+      <span class="lbl">ファイル</span>
+      <button id="btnMap" class="primary">🗺 地図を読み込む</button>
+      <button id="btnOpen">📂 開く</button>
+      <button id="btnSaveProj">💾 保存</button>
+    </div>
+    <div class="grp">
+      <span class="lbl">仕上げ</span>
+      <button id="btnPng">⬇ 画像で保存</button>
+      <button id="btnPrint">🖨 印刷</button>
+    </div>
+    <div class="grp">
+      <span class="lbl">画面の表示</span>
+      <button id="btnZoomOut" title="縮小">−</button>
+      <button id="btnZoomIn" title="拡大">＋</button>
+      <button id="btnFit">全体</button>
+    </div>
+  </div>
+  <div class="bar">
+    <div class="grp">
+      <span class="lbl">道具</span>
+      <button class="tool" data-tool="select">🖱 選択</button>
+      <button class="tool active" data-tool="arrow">➜ 矢印</button>
+      <button class="tool" data-tool="pin">📍 番号</button>
+      <button class="tool" data-tool="guard">👮 警備員</button>
+      <button class="tool" data-tool="ellipse">◯ 丸</button>
+      <button class="tool" data-tool="rect">□ 四角</button>
+      <button class="tool" data-tool="text">✎ 文字</button>
+    </div>
+    <div class="grp">
+      <span class="lbl">色</span>
+      <button class="swatch active" data-color="#e60012" style="background:#e60012" title="赤"></button>
+      <button class="swatch" data-color="#0068b7" style="background:#0068b7" title="青"></button>
+      <button class="swatch" data-color="#00a040" style="background:#00a040" title="緑"></button>
+      <button class="swatch" data-color="#f39800" style="background:#f39800" title="オレンジ"></button>
+      <button class="swatch" data-color="#111111" style="background:#111111" title="黒"></button>
+    </div>
+    <div class="grp">
+      <span class="lbl">太さ</span>
+      <select id="thick" title="線・文字・ピンの大きさ">
+        <option value="0.25">1 最も細い</option>
+        <option value="0.35">2 とても細い</option>
+        <option value="0.5">3 極細</option>
+        <option value="0.75">4 細い</option>
+        <option value="1" selected>5 標準</option>
+        <option value="1.5">6 太い</option>
+        <option value="2.2">7 極太</option>
+      </select>
+      <span class="lbl">濃さ</span>
+      <select id="alpha" title="線・図形の透明度">
+        <option value="1" selected>100%</option>
+        <option value="0.85">85%</option>
+        <option value="0.7">70%</option>
+        <option value="0.55">55%</option>
+        <option value="0.4">40%</option>
+        <option value="0.25">25%</option>
+      </select>
+    </div>
+    <div class="grp">
+      <span class="lbl">編集</span>
+      <button id="btnUndo" title="元に戻す（Ctrl+Z）">↩ 戻す</button>
+      <button id="btnRedo" title="やり直す（Ctrl+Y）">↪ 進む</button>
+      <button id="btnDel" title="選んだものを削除（Delete）">🗑 削除</button>
+      <button id="btnClear">全消去</button>
+    </div>
+  </div>
 </div>
 <div id="hint"></div>
 <div id="main">
@@ -123,12 +146,21 @@ footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
           <option value="portrait">A4 縦</option>
         </select>
       </label>
+      <div class="row">
+        <span style="width:58px">大きさ</span>
+        <input type="range" id="mapZoom" min="20" max="400" step="1" value="100">
+        <span id="mapZoomLabel" style="width:44px;text-align:right">100%</span>
+      </div>
+      <div class="btnRow">
+        <button id="btnMapSmaller" title="地図を少し小さく">− 小さく</button>
+        <button id="btnMapBigger" title="地図を少し大きく">＋ 大きく</button>
+      </div>
       <div class="btnRow">
         <button id="btnFitContain" title="地図全体が枠に収まる大きさにします">枠に収める</button>
         <button id="btnFitCover" title="枠いっぱいに広げます（はみ出た分は切れます）">枠いっぱい</button>
       </div>
       <div class="btnRow">
-        <button id="btnPickMap">🗺 地図の位置・大きさを調整</button>
+        <button id="btnPickMap">✋ 地図をつかんで動かす</button>
       </div>
       <div class="note" id="mapNote">地図を読み込むと、ここで大きさを調整できます。</div>
     </div>
@@ -273,7 +305,7 @@ function applyPageSize(){
   footRange.max=Math.round(pageHmm()*0.6);
   if(footMM>footRange.max)footMM=parseFloat(footRange.max);
   footRange.value=footMM;
-  updatePageStyle(); updateFootUI(); computeFit(); redraw();
+  updatePageStyle(); updateFootUI(); updateMapNote(); computeFit(); redraw();
 }
 function updateFootUI(){
   footMMLabel.textContent=Math.round(footMM)+'mm';
@@ -310,12 +342,37 @@ async function loadMapWithConfirm(src){
   undoStack=[]; redoStack=[]; selected=null; cascade=0;
   await setMapFromSrc(src,false);
 }
+// 「枠に収める」ときの幅を 100% として、地図の倍率を扱う
+function mapContainW(){
+  const mo=getMap(); if(!mo)return 0;
+  const r=mapRect(), iw=mo.img.naturalWidth, ih=mo.img.naturalHeight;
+  return iw*Math.min(r.w/iw,r.h/ih);
+}
+function mapPercent(){
+  const mo=getMap(), cw=mapContainW();
+  return (mo&&cw)?Math.round(mo.w/cw*100):100;
+}
+function setMapPercent(v){
+  const mo=getMap(), cw=mapContainW(); if(!mo||!cw)return;
+  const cx=mo.x+mo.w/2, cy=mo.y+mo.h/2;          // 中心を動かさずに拡大縮小する
+  mo.w=cw*v/100;
+  mo.h=mo.w*mo.img.naturalHeight/mo.img.naturalWidth;
+  mo.x=cx-mo.w/2; mo.y=cy-mo.h/2;
+}
 function updateMapNote(){
   const mo=getMap();
-  if(!mo){ mapNote.textContent='地図を読み込むと、ここで大きさを調整できます。'; return; }
-  const r=mapRect();
-  mapNote.innerHTML='地図の大きさ <b>'+Math.round(mo.w/MM)+'×'+Math.round(mo.h/MM)+'mm</b>'
-    +'（枠は '+Math.round(r.w/MM)+'×'+Math.round(r.h/MM)+'mm）<br>枠からはみ出た部分は印刷されません。';
+  const on=!!mo;
+  ['mapZoom','btnMapSmaller','btnMapBigger','btnFitContain','btnFitCover','btnPickMap']
+    .forEach(id=>{ document.getElementById(id).disabled=!on; });
+  if(!on){
+    mapNote.textContent='地図を読み込むと、ここで大きさを調整できます。';
+    document.getElementById('mapZoomLabel').textContent='—';
+    return;
+  }
+  const p=mapPercent();
+  document.getElementById('mapZoom').value=Math.min(400,Math.max(20,p));
+  document.getElementById('mapZoomLabel').textContent=p+'%';
+  mapNoteText();
 }
 
 /* ---------- 写真 ---------- */
@@ -638,8 +695,10 @@ function handleSize(){ return Math.max(14,18/scaleNow()); }
 function selPad(){ return handleSize()*0.4; }
 function handlePos(o){
   if(o.type==='arrow')return null;
-  const b=getBBox(o), d=selPad()+handleSize()*0.5;
-  return {x:b.x+b.w+d,y:b.y+b.h+d};
+  const b=getBBox(o), d=selPad()+handleSize()*0.5, m=handleSize()*0.6;
+  // 地図は用紙いっぱいに広がるので、□は枠の内側に置く（外だと画面外で掴めない）
+  if(o.type==='map')return {x:b.x+b.w-d,y:b.y+b.h-d};
+  return {x:Math.min(b.x+b.w+d,cv.width-m),y:Math.min(b.y+b.h+d,cv.height-m)};
 }
 function tailPos(o){
   return (o.type==='photo'&&o.mode==='callout'&&o.tx!=null)?{x:o.tx,y:o.ty}:null;
@@ -990,8 +1049,33 @@ document.getElementById('btnPickMap').onclick=()=>{
   const mo=getMap();
   if(!mo){alert('先に地図を読み込んでください');return;}
   setTool('select'); selected=mo; syncStyleUI(); redraw();
-  setHint('地図を選びました。ドラッグで位置、右下の□で大きさを調整できます。青い点線の枠からはみ出た部分は印刷されません。');
+  setHint('地図を選びました。そのままドラッグで位置を、枠の右下の□で大きさを変えられます（右の「大きさ」スライダーでも変えられます）。');
 };
+let mapZoomSnap=null;
+const mapZoom=document.getElementById('mapZoom');
+mapZoom.addEventListener('pointerdown',()=>{ mapZoomSnap=cloneObjects(); });
+mapZoom.addEventListener('input',()=>{
+  if(!getMap())return;
+  if(mapZoomSnap){ undoStack.push(mapZoomSnap); redoStack.length=0; mapZoomSnap=null; }
+  setMapPercent(parseFloat(mapZoom.value));
+  document.getElementById('mapZoomLabel').textContent=Math.round(mapZoom.value)+'%';
+  mapNoteText(); redraw();
+});
+function mapNoteText(){
+  const mo=getMap(); if(!mo)return;
+  const r=mapRect();
+  mapNote.innerHTML='地図 <b>'+Math.round(mo.w/MM)+'×'+Math.round(mo.h/MM)+'mm</b>'
+    +' ／ 枠 '+Math.round(r.w/MM)+'×'+Math.round(r.h/MM)+'mm<br>'
+    +'枠（青い点線）からはみ出た部分は印刷されません。';
+}
+function stepMapZoom(d){
+  if(!getMap()){alert('先に地図を読み込んでください');return;}
+  pushUndo();
+  setMapPercent(Math.min(400,Math.max(20,mapPercent()+d)));
+  updateMapNote(); redraw();
+}
+document.getElementById('btnMapBigger').onclick=()=>stepMapZoom(10);
+document.getElementById('btnMapSmaller').onclick=()=>stepMapZoom(-10);
 footRange.addEventListener('input',()=>{
   footMM=parseFloat(footRange.value);
   updateFootUI(); updateMapNote(); redraw();
