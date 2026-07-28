@@ -246,7 +246,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='1.6';
+const APP_VERSION='1.7';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -321,8 +321,6 @@ function thickMul(){ return parseFloat(thickSel.value); }
 function alphaVal(){ return parseFloat(alphaSel.value); }
 function dashVal(){ return dashSel.value; }
 function rectTailOn(){ return rectTailSel.value==='tail'; }
-/* ピンごとの決まった色。置いたあと、色ボタンで変えることもできます */
-const PIN_COLOR={guard:'#1a73e8', wash:'#00a040'};
 /* 「太さ」を使うのは線だけ。ピンと文字はいつも標準の大きさで置きます
    （置いたあと、右下の□をドラッグすれば個別に大きさを変えられます） */
 function usesThickness(t){ return t==='arrow'||t==='line'||t==='ellipse'||t==='rect'; }
@@ -341,7 +339,7 @@ function dashPattern(kind,w){
 }
 function lineW(o){ return Math.max(1,base*o.mul); }
 function pinR(o){ return base*2.2*o.mul; }
-function guardR(o){ return base*3.0*o.mul; }
+function guardR(o){ return base*2.5*o.mul; }   // 警備員・洗い場のピンの大きさ
 function textSize(o){ return Math.max(7,base*3.2*o.mul); }
 function setHint(msg){ hintEl.textContent=(msg!==undefined)?msg:(HINTS[tool]||''); }
 function scaleNow(){ return fitScale*userZoom; }
@@ -761,30 +759,44 @@ function pinLabel(o,r){
   ctx.strokeText(o.label,o.x,o.y+s*0.35);
   ctx.fillStyle=o.color; ctx.fillText(o.label,o.x,o.y+s*0.35);
 }
-/* ミキサー車の洗い場。蛇口から水が落ちている絵にしています */
+/* ミキサー車（生コン車）の洗い場。
+   斜めに下ろしたシュート（トイ）に、水を吹きつけて洗っている絵です */
 function drawWash(o){
   const r=guardR(o), p=pinShape(o,r), cx=p.cx, cy=p.cy;
-  ctx.fillStyle='#fff'; ctx.strokeStyle='#fff';
   ctx.lineCap='round'; ctx.lineJoin='round';
-  // 壁の取り付け金具
-  ctx.beginPath(); ctx.rect(cx-0.66*r,cy-0.60*r,0.16*r,0.32*r); ctx.fill();
-  // 横のパイプ
-  ctx.beginPath(); ctx.rect(cx-0.60*r,cy-0.52*r,0.68*r,0.16*r); ctx.fill();
-  // 下に向かう蛇口
-  ctx.beginPath(); ctx.rect(cx-0.08*r,cy-0.52*r,0.16*r,0.38*r); ctx.fill();
-  // ハンドル
-  ctx.beginPath(); ctx.rect(cx-0.34*r,cy-0.70*r,0.16*r,0.20*r); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(cx-0.26*r,cy-0.72*r,0.20*r,0.07*r,0,0,7); ctx.fill();
-  // 落ちる水（しずく3つ）
-  ctx.beginPath(); ctx.arc(cx,cy+0.06*r,0.115*r,0,7); ctx.fill();
-  ctx.beginPath(); ctx.arc(cx,cy+0.33*r,0.09*r,0,7); ctx.fill();
-  // 受け止める水面
-  ctx.lineWidth=0.11*r;
+  const ux=0.868, uy=0.497;                 // シュートの傾き（約30度）
+  const nx=0.497, ny=-0.868;                // その上向きの直角方向
+  const oy=0.16*r;                          // 絵全体を少し下げる
+  const A={x:cx-0.50*r*ux,      y:cy-0.50*r*uy+oy};   // 車体側（根元）
+  const B={x:cx+0.46*r*ux+0.04*r,y:cy+0.46*r*uy+oy};  // 先端
+
+  // シュート（樋）本体
+  ctx.strokeStyle='#fff'; ctx.lineWidth=0.32*r;
+  ctx.beginPath(); ctx.moveTo(A.x,A.y); ctx.lineTo(B.x,B.y); ctx.stroke();
+  // 樋の口（本体色で溝を抜くと、上が開いた樋に見えます）
+  ctx.strokeStyle=o.color; ctx.lineWidth=0.13*r;
   ctx.beginPath();
-  ctx.moveTo(cx-0.46*r,cy+0.60*r);
-  ctx.quadraticCurveTo(cx-0.23*r,cy+0.46*r,cx,cy+0.60*r);
-  ctx.quadraticCurveTo(cx+0.23*r,cy+0.74*r,cx+0.46*r,cy+0.60*r);
+  ctx.moveTo(A.x+nx*0.06*r,A.y+ny*0.06*r);
+  ctx.lineTo(B.x+nx*0.06*r,B.y+ny*0.06*r);
   ctx.stroke();
+  // 根元の受け金具
+  ctx.fillStyle='#fff';
+  ctx.beginPath();
+  ctx.arc(A.x-0.10*r*ux,A.y-0.10*r*uy,0.20*r,0,7);
+  ctx.fill();
+
+  // 洗っている水。シュートより急な角度の筋にすると、
+  // 上から吹きつけて洗っているように見えます
+  ctx.strokeStyle='#fff'; ctx.lineWidth=0.115*r;
+  const jet=[[-0.44,-0.70,-0.36,-0.36],[-0.11,-0.76,-0.03,-0.34],[0.22,-0.66,0.30,-0.28]];
+  for(const j of jet){
+    ctx.beginPath();
+    ctx.moveTo(cx+j[0]*r,cy+j[1]*r);
+    ctx.lineTo(cx+j[2]*r,cy+j[3]*r);
+    ctx.stroke();
+  }
+  // 先から落ちる水
+  ctx.beginPath(); ctx.arc(cx+0.56*r,cy+0.54*r,0.085*r,0,7); ctx.fill();
   pinLabel(o,r);
 }
 function drawGuard(o){
@@ -1173,8 +1185,8 @@ cv.addEventListener('click',e=>{
   }else if(tool==='guard'||tool==='wash'){
     pushUndo();
     objects.push({type:tool,x:p.x,y:p.y,
-      label:(tool==='guard')?'警備員':'ミキサー洗い場',
-      mul:1,color:PIN_COLOR[tool],alpha:alphaVal()});
+      label:(tool==='guard')?'警備員':'洗い場',
+      mul:1,color:color,alpha:alphaVal()});
     redraw();
   }else if(tool==='text'){
     const t=prompt('表示する文字を入力してください','この先 入口');
