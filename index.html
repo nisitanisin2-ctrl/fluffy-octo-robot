@@ -211,6 +211,9 @@ footer .note2{min-width:0}
       <div class="btnRow">
         <button id="btnPickMap">✋ 地図をつかんで動かす</button>
       </div>
+      <div class="btnRow">
+        <button id="btnRotateMap" title="貼り付けた地図を、時計回りに90度回します。4回押すと元に戻ります">↻ 地図を90度回す</button>
+      </div>
       <div class="note" id="mapNote">地図を読み込むと、ここで大きさを調整できます。</div>
     </div>
     <div class="sec" style="flex:1 0 auto">
@@ -271,7 +274,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='2.4';
+const APP_VERSION='2.5';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -457,7 +460,7 @@ function setMapPercent(v){
 function updateMapNote(){
   const mo=getMap();
   const on=!!mo;
-  ['mapZoom','btnMapSmaller','btnMapBigger','btnFitContain','btnFitCover','btnPickMap']
+  ['mapZoom','btnMapSmaller','btnMapBigger','btnFitContain','btnFitCover','btnPickMap','btnRotateMap']
     .forEach(id=>{ document.getElementById(id).disabled=!on; });
   if(!on){
     mapNote.textContent='地図を読み込むと、ここで大きさを調整できます。';
@@ -1354,6 +1357,35 @@ document.getElementById('btnFitContain').onclick=()=>{
 document.getElementById('btnFitCover').onclick=()=>{
   if(!getMap()){alert('先に地図を読み込んでください');return;}
   pushUndo(); fitMap('cover'); updateMapNote(); redraw();
+};
+/* 地図を時計回りに90度回します。絵そのものを回して作り直すので、
+   このあとの大きさ調整や位置合わせは、今までと同じように使えます */
+document.getElementById('btnRotateMap').onclick=async ()=>{
+  const mo=getMap();
+  if(!mo){alert('先に地図を読み込んでください');return;}
+  /* 回るのは地図だけです。すでに描いてあると位置がずれるので、そのときだけ確認します */
+  const others=objects.filter(o=>o.type!=='map').length;
+  if(others&&!confirm('地図だけが回ります。すでに描いた矢印・ピン・写真は、そのままの場所に残るので、位置がずれます。\n\n回しますか？（［戻す］で元に戻せます）'))return;
+  /* 「枠に収める」状態だったら、回したあとも枠に収め直します（横長→縦長で大きくはみ出すため）。
+     自分で大きさを変えていた場合は、その大きさのまま回します */
+  const wasContain=Math.abs(mapPercent()-100)<1;
+  const im=mo.img, iw=im.naturalWidth, ih=im.naturalHeight;
+  const c=document.createElement('canvas');
+  c.width=ih; c.height=iw;                       /* 回すと縦横が入れ替わります */
+  const g=c.getContext('2d');
+  g.translate(ih/2,iw/2); g.rotate(Math.PI/2);
+  g.drawImage(im,-iw/2,-ih/2);
+  /* 元が写真（JPEG）ならJPEGのまま。作業ファイルが無駄に重くならないようにします */
+  const type=/^data:image\/jpe?g/i.test(mo.src)?'image/jpeg':'image/png';
+  const src=c.toDataURL(type,0.92);
+  const nim=await loadImage(src);
+  pushUndo();
+  const cx=mo.x+mo.w/2, cy=mo.y+mo.h/2;          /* 中心は動かしません */
+  const w=mo.h, h=mo.w;
+  mo.img=nim; mo.src=src; mo.w=w; mo.h=h; mo.x=cx-w/2; mo.y=cy-h/2;
+  if(wasContain)fitMap('contain');
+  updateMapNote(); redraw();
+  setHint('地図を90度回しました。もう一度押すと、さらに90度回ります。位置や大きさは右の「大きさ」「枠に収める」で直せます。');
 };
 document.getElementById('btnPickMap').onclick=()=>{
   const mo=getMap();
