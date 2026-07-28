@@ -62,7 +62,9 @@ input[type=range]{padding:0}
 .titem .del{position:absolute;top:4px;right:4px;width:22px;height:22px;line-height:1;padding:0;border-radius:50%;background:rgba(255,255,255,.9)}
 #footText{margin:0 10px 8px;resize:vertical;height:70px}
 #btnArrange{margin:0 10px 10px}
-footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
+footer{flex:none;background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;justify-content:space-between}
+footer .note2{min-width:0}
+#ver{flex:none;margin-left:auto;color:#96a0ad;white-space:nowrap;letter-spacing:.02em}
 @media print{
   #toolbar,#hint,footer,#side{display:none!important}
   html,body{margin:0;padding:0;height:auto;background:#fff;display:block}
@@ -223,12 +225,22 @@ footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
   </aside>
 </div>
 <div id="hint"></div>
-<footer>地図画像は Googleマップ／Yahoo!地図 それぞれの利用規約の範囲内でご利用ください。青と橙の点線は画面上の目安で、印刷や画像保存には出ません。</footer>
+<footer>
+  <span class="note2">地図画像は Googleマップ／Yahoo!地図 それぞれの利用規約の範囲内でご利用ください。青と橙の点線は画面上の目安で、印刷や画像保存には出ません。</span>
+  <span id="ver"></span>
+</footer>
 <input type="file" id="fileMap" accept="image/*" hidden>
 <input type="file" id="filePhoto" accept="image/*" multiple hidden>
 <input type="file" id="fileProj" accept=".json,application/json" hidden>
 <script>
 'use strict';
+/* ===== バージョン =====
+   アプリを直したら、この2行を書き換えてください。
+   画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
+   インストール済みの人にも確実に新しい版が届きます。 */
+const APP_VERSION='1.2';
+const APP_DATE='2026-07-28';
+
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const stage=document.getElementById('stage');
 const hintEl=document.getElementById('hint');
@@ -1407,6 +1419,15 @@ function applyZoom(){
   cv.style.height=Math.round(cv.height*s)+'px';
 }
 window.addEventListener('resize',computeFit);
+
+/* 画面右下のバージョン表示 */
+(function(){
+  const el=document.getElementById('ver');
+  el.textContent='バージョン '+APP_VERSION+'（'+APP_DATE+'）';
+  const installed=window.matchMedia('(display-mode: standalone)').matches;
+  el.title='現場経路作成アプリ バージョン '+APP_VERSION+'\n更新日 '+APP_DATE
+          +'\n'+(installed?'このパソコンにインストール済みの状態で動いています':'ブラウザで開いています');
+})();
 
 applyPageSize();
 setTool('arrow');
