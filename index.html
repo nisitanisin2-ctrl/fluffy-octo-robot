@@ -37,8 +37,9 @@ input[type=range]{padding:0}
 .row select,.row input[type=range]{flex:1;min-width:0}
 .btnRow{display:flex;gap:6px;padding:0 10px 8px}
 .btnRow button{flex:1;padding:6px 4px;font-size:13px}
-.note{padding:0 10px 8px;font-size:12px;color:#555;line-height:1.6}
+.note{padding:0 10px 8px;font-size:12px;color:#555;line-height:1.7}
 .note b{color:#1a5fb4}
+.note kbd{background:#39465a;color:#fff;border-radius:4px;padding:1px 5px;font-size:11px;font-family:inherit}
 #dropZone{margin:10px;padding:12px 8px;border:2px dashed #bbb;border-radius:10px;text-align:center;color:#666;cursor:pointer;line-height:1.7;background:#fafafa}
 #dropZone.armed{border-color:#1a73e8;background:#eaf2fe;color:#14488f}
 #dropZone kbd{background:#333;color:#fff;border-radius:4px;padding:1px 6px;font-size:12px}
@@ -170,6 +171,7 @@ footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
         ここをクリックしてから<br><kbd>Ctrl</kbd>+<kbd>V</kbd> で写真を貼り付け<br>
         <small>（画像のドラッグ＆ドロップも可）</small>
       </div>
+      <div class="note">ストリートビューなどの画面も、<kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> で範囲を切り取ってから貼り付けられます。</div>
       <button id="btnPhotoFile">📁 ファイルから追加</button>
       <label class="row">場所の示し方
         <select id="photoMode">
@@ -522,13 +524,7 @@ function drawGuides(){
     ctx.strokeStyle='rgba(240,150,0,.85)';
     ctx.strokeRect(1,dividerY()+1,cv.width-2,fh-2);
   }
-  if(!getMap()){
-    ctx.setLineDash([]);
-    ctx.fillStyle='rgba(26,115,232,.8)';
-    ctx.font='bold '+Math.round(MM*6)+'px "Meiryo",sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText('ここに地図を貼り付け（Ctrl+V）',r.x+r.w/2,r.y+r.h/2);
-  }
+  if(!getMap())drawMapPlaceholder(r);
   const t=tabRect();
   ctx.setLineDash([]);
   ctx.fillStyle='rgba(255,255,255,.95)'; ctx.strokeStyle='rgba(240,150,0,.95)';
@@ -540,6 +536,77 @@ function drawGuides(){
     const x=t.x+t.w/2+i*t.h*0.7;
     ctx.beginPath(); ctx.moveTo(x,t.y+t.h*0.28); ctx.lineTo(x,t.y+t.h*0.72); ctx.stroke();
   }
+  ctx.restore();
+}
+// 文字とキートップ（[Win] など）を混ぜた1行を描く
+function runsWidth(runs,fs){
+  const kpad=fs*0.36, gap=fs*0.12;
+  ctx.font='bold '+Math.round(fs)+'px "Meiryo",sans-serif';
+  let w=0;
+  for(const r of runs)w+=r.k?(ctx.measureText(r.k).width+kpad*2+gap*2):ctx.measureText(r.t).width;
+  return w;
+}
+function drawRuns(runs,x0,y,fs,col,leftAlign){
+  const kpad=fs*0.36, gap=fs*0.12, h=fs*1.36;
+  let x=leftAlign?x0:(x0-runsWidth(runs,fs)/2);
+  ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.font='bold '+Math.round(fs)+'px "Meiryo",sans-serif';
+  for(const r of runs){
+    if(r.k){
+      const w=ctx.measureText(r.k).width+kpad*2;
+      x+=gap;
+      ctx.fillStyle='#39465a';
+      if(ctx.roundRect){ctx.beginPath();ctx.roundRect(x,y-h/2,w,h,fs*0.24);ctx.fill();}
+      else ctx.fillRect(x,y-h/2,w,h);
+      ctx.fillStyle='#fff'; ctx.fillText(r.k,x+kpad,y+fs*0.04);
+      x+=w+gap;
+    }else{
+      ctx.fillStyle=col; ctx.fillText(r.t,x,y);
+      x+=ctx.measureText(r.t).width;
+    }
+  }
+}
+function drawMapPlaceholder(r){
+  const fs=Math.max(11,MM*3.8), hs=fs*1.35, lh=fs*2.05, ns=fs*0.88;
+  const head='🗺 ここに地図を貼り付けます';
+  const lines=[
+    [{t:'① Googleマップ・ヤフー地図で現場のまわりを表示する'}],
+    [{t:'② '},{k:'Win'},{t:'＋'},{k:'Shift'},{t:'＋'},{k:'S'},{t:' を押す（画面が白くなります）'}],
+    [{t:'③ 地図の写したい範囲をドラッグで囲む'}],
+    [{t:'④ この画面に戻って '},{k:'Ctrl'},{t:'＋'},{k:'V'},{t:' を押す'}]
+  ];
+  const note='画像ファイルをここへドラッグ、または上の「🗺 地図を読み込む」からでも取り込めます';
+  ctx.save();
+  ctx.setLineDash([]);
+  ctx.font='bold '+Math.round(hs)+'px "Meiryo",sans-serif';
+  let maxW=ctx.measureText(head).width;
+  for(const l of lines)maxW=Math.max(maxW,runsWidth(l,fs));
+  ctx.font=Math.round(ns)+'px "Meiryo",sans-serif';
+  maxW=Math.max(maxW,ctx.measureText(note).width);
+  const padX=fs*2.2, padY=fs*1.7;
+  const boxW=Math.min(r.w-MM*16,maxW+padX*2);
+  const boxH=padY*2+hs*1.7+lines.length*lh+ns*2.2;
+  const bx=r.x+(r.w-boxW)/2, by=r.y+(r.h-boxH)/2;
+  ctx.fillStyle='rgba(255,255,255,.92)';
+  ctx.strokeStyle='rgba(26,115,232,.5)';
+  ctx.lineWidth=Math.max(1,fs*0.09);
+  if(ctx.roundRect){ ctx.beginPath(); ctx.roundRect(bx,by,boxW,boxH,fs*0.9); ctx.fill(); ctx.stroke(); }
+  else { ctx.fillRect(bx,by,boxW,boxH); ctx.strokeRect(bx,by,boxW,boxH); }
+  const cx=bx+boxW/2;
+  let y=by+padY+hs*0.7;
+  ctx.font='bold '+Math.round(hs)+'px "Meiryo",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#1a5fb4';
+  ctx.fillText(head,cx,y);
+  y+=hs*1.0+lh*0.5;
+  let stepW=0;
+  for(const l of lines)stepW=Math.max(stepW,runsWidth(l,fs));
+  const leftX=cx-stepW/2;                       // 番号を左端でそろえる
+  for(const l of lines){ drawRuns(l,leftX,y,fs,'#33404f',true); y+=lh; }
+  ctx.font=Math.round(ns)+'px "Meiryo",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#6b7684';
+  ctx.fillText(note,cx,y+ns*0.4);
   ctx.restore();
 }
 function drawObj(o){
