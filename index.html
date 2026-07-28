@@ -2,7 +2,16 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
 <title>現場経路作成アプリ</title>
+<meta name="description" content="地図のスクリーンショットに赤い矢印で経路を描き、写真を差し込んで現場までの道順図を作るアプリ">
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#1a73e8">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="現場経路">
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -84,6 +93,10 @@ footer{background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px}
       <button id="btnZoomOut" title="縮小">−</button>
       <button id="btnZoomIn" title="拡大">＋</button>
       <button id="btnFit">全体</button>
+    </div>
+    <div class="grp" id="grpInstall" hidden>
+      <span class="lbl">アプリ</span>
+      <button id="btnInstall" class="primary" title="このパソコンにインストールします。デスクトップのアイコンから、ブラウザを開かずに使えるようになります">💻 パソコンに入れる</button>
     </div>
   </div>
   <div class="bar">
@@ -1351,6 +1364,45 @@ window.addEventListener('resize',computeFit);
 applyPageSize();
 setTool('arrow');
 setHint();
+</script>
+
+<!-- ---------- パソコン／スマホへのインストール ---------- -->
+<script>
+(function(){
+  /* オフラインでも使えるようにする仕組み。
+     ファイルを直接ダブルクリックで開いた場合（file://）は使えないので、その時は何もしません。 */
+  if('serviceWorker' in navigator && location.protocol.startsWith('http')){
+    window.addEventListener('load',function(){
+      navigator.serviceWorker.register('service-worker.js').catch(function(){/* 使えなくても動作に支障なし */});
+    });
+  }
+
+  /* 「パソコンに入れる」ボタン。
+     ブラウザが「インストールできますよ」と教えてくれた時だけ出します。 */
+  var grp=document.getElementById('grpInstall'),
+      btn=document.getElementById('btnInstall'),
+      waiting=null;
+
+  window.addEventListener('beforeinstallprompt',function(e){
+    e.preventDefault();          // ブラウザ既定の案内を止めて、こちらのボタンで出す
+    waiting=e;
+    grp.hidden=false;
+  });
+
+  btn.addEventListener('click',async function(){
+    if(!waiting)return;
+    grp.hidden=true;
+    var p=waiting; waiting=null;
+    p.prompt();
+    var r=await p.userChoice.catch(function(){return {outcome:'dismissed'}});
+    if(r.outcome!=='accepted')grp.hidden=false;   // 断られたら、また押せるように戻す
+  });
+
+  window.addEventListener('appinstalled',function(){
+    waiting=null;
+    grp.hidden=true;
+  });
+})();
 </script>
 </body>
 </html>

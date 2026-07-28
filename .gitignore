@@ -12,6 +12,12 @@
 *.webp
 *.bmp
 
+# ただしアプリのアイコンは公開に必要なので、これだけは含めます
+!icon-192.png
+!icon-512.png
+!icon-512-maskable.png
+!icon-180.png
+
 # Windows が作る一時ファイル
 Thumbs.db
 desktop.ini

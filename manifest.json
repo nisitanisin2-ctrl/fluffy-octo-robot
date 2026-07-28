@@ -1,0 +1,35 @@
+{
+  "id": "./",
+  "name": "現場経路作成アプリ",
+  "short_name": "現場経路",
+  "description": "地図のスクリーンショットに赤い矢印で経路を描き、写真を差し込んで現場までの道順図を作るアプリ",
+  "lang": "ja",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#4a4f57",
+  "theme_color": "#1a73e8",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "icon-512-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
