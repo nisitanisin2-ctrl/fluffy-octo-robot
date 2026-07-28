@@ -69,8 +69,15 @@ input[type=range]{padding:0}
 footer{flex:none;background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;justify-content:space-between}
 footer .note2{min-width:0}
 #ver{flex:none;margin-left:auto;color:#96a0ad;white-space:nowrap;letter-spacing:.02em}
+/* 印刷プレビュー。印刷したときの用紙を、そのまま画面いっぱいに映します */
+#preview{position:fixed;inset:0;z-index:50;background:rgba(30,34,40,.82);display:flex;flex-direction:column}
+#preview[hidden]{display:none}
+#previewBar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;background:#2b3038;color:#fff}
+#previewBar .lead{margin-right:auto;font-size:13px;color:#cfd6df}
+#previewPaper{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px}
+#previewImg{max-width:100%;height:auto;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 @media print{
-  #toolbar,#hint,footer,#side{display:none!important}
+  #toolbar,#hint,footer,#side,#preview{display:none!important}
   html,body{margin:0;padding:0;height:auto;background:#fff;display:block}
   #main,#stage{display:block;margin:0;padding:0;overflow:visible}
   #cv{width:100%!important;height:auto!important;box-shadow:none;margin:0;display:block}
@@ -98,6 +105,7 @@ footer .note2{min-width:0}
       <span class="lbl">仕上げ</span>
       <button id="btnPng">⬇ 画像で保存</button>
       <button id="btnPrint">🖨 印刷</button>
+      <button id="btnPreview" title="印刷したときの見た目を、印刷する前に確かめられます">👁 プレビュー</button>
     </div>
     <div class="grp">
       <span class="lbl">画面の表示</span>
@@ -245,6 +253,14 @@ footer .note2{min-width:0}
   <span class="note2">地図画像は Googleマップ／Yahoo!地図 それぞれの利用規約の範囲内でご利用ください。青と橙の点線は画面上の目安で、印刷や画像保存には出ません。</span>
   <span id="ver"></span>
 </footer>
+<div id="preview" hidden>
+  <div id="previewBar">
+    <span class="lead">印刷したときの見た目です。青と橙の点線や選択の枠は出ません。</span>
+    <button id="btnPreviewPrint" class="primary">🖨 このまま印刷</button>
+    <button id="btnPreviewClose">✕ 閉じる</button>
+  </div>
+  <div id="previewPaper"><img id="previewImg" alt="印刷したときの用紙"></div>
+</div>
 <input type="file" id="fileMap" accept="image/*" hidden>
 <input type="file" id="filePhoto" accept="image/*" multiple hidden>
 <input type="file" id="fileProj" accept=".json,application/json" hidden>
@@ -254,7 +270,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='2.1';
+const APP_VERSION='2.2';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -1257,7 +1273,8 @@ window.addEventListener('keydown',e=>{
   const tag=(e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='textarea'||tag==='select')return;
   if(e.key==='Escape'){
-    if(drawing){drawing=null;redraw();} else if(selected){selected=null;redraw();}
+    if(!preview.hidden){closePreview();}
+    else if(drawing){drawing=null;redraw();} else if(selected){selected=null;redraw();}
   }else if(e.key==='Enter'){ if(isPoly(tool)&&drawing)finalizeArrow(); }
   else if(e.key==='Delete'||e.key==='Backspace'){ deleteSelected(); }
   else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'&&!e.shiftKey){ e.preventDefault();undo(); }
@@ -1432,6 +1449,25 @@ document.getElementById('btnPrint').onclick=()=>{
   window.print();
   setTimeout(redraw,300);
 };
+/* ---------- 印刷プレビュー ---------- */
+/* 印刷と同じ描き方（renderClean）で用紙を1枚の絵にして、画面いっぱいに映します */
+function openPreview(){
+  renderClean();
+  previewImg.src=cv.toDataURL('image/png');
+  preview.hidden=false;
+  redraw();
+  setHint('印刷したときの見た目です。［✕ 閉じる］か Esc で元の画面に戻ります。');
+}
+function closePreview(){ preview.hidden=true; setHint(); }
+document.getElementById('btnPreview').onclick=openPreview;
+document.getElementById('btnPreviewClose').onclick=closePreview;
+document.getElementById('btnPreviewPrint').onclick=()=>{
+  closePreview();
+  renderClean();
+  window.print();
+  setTimeout(redraw,300);
+};
+preview.addEventListener('click',e=>{ if(e.target===preview||e.target.id==='previewPaper')closePreview(); });
 document.getElementById('btnSaveProj').onclick=()=>{
   const data={app:'genba-keiro',version:4,site:siteName.value,
     orient:orient,footMM:footMM,footFont:footFontSel.value,footText:footText,
