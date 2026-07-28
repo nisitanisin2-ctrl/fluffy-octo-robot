@@ -40,9 +40,12 @@ input[type=range]{padding:0}
 #stage{flex:1;overflow:auto;position:relative;display:flex;align-items:flex-start;justify-content:center}
 #cv{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.45);margin:12px}
 
-#side{width:262px;flex:none;background:#fff;border-left:1px solid #ccc;display:flex;flex-direction:column;overflow:hidden}
-.sec{display:flex;flex-direction:column;min-height:0;border-bottom:1px solid #e4e4e4}
+/* 右のパネル。画面が低いときは、中身を縮めずにパネルごと縦にスクロールさせます
+   （縮めてしまうと「高さ」「文字の大きさ」などの行が重なって押せなくなります） */
+#side{width:262px;flex:none;background:#fff;border-left:1px solid #ccc;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
+.sec{display:flex;flex-direction:column;flex:none;border-bottom:1px solid #e4e4e4}
 .sec:last-child{border-bottom:none}
+.secHead,.row,.btnRow,.note,#dropZone,#btnPhotoFile,#footText,#btnArrange{flex:none}
 .secHead{padding:8px 10px 6px;font-weight:bold;background:#f7f8fa}
 .row{display:flex;align-items:center;gap:6px;padding:0 10px 8px;font-size:13px;color:#444}
 .row select,.row input[type=range]{flex:1;min-width:0}
@@ -197,7 +200,7 @@ footer .note2{min-width:0}
       </div>
       <div class="note" id="mapNote">地図を読み込むと、ここで大きさを調整できます。</div>
     </div>
-    <div class="sec" style="flex:1">
+    <div class="sec" style="flex:1 0 auto">
       <div class="secHead">🖼 差し込み用写真</div>
       <div id="dropZone">
         ここをクリックしてから<br><kbd>Ctrl</kbd>+<kbd>V</kbd> で写真を貼り付け<br>
@@ -246,7 +249,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='1.7';
+const APP_VERSION='1.8';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
