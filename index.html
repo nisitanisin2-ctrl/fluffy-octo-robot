@@ -17,18 +17,19 @@
 html,body{height:100%;margin:0}
 body{display:flex;flex-direction:column;font-family:"Segoe UI","Meiryo",system-ui,sans-serif;background:#4a4f57;font-size:14px}
 #toolbar{background:#fff;border-bottom:1px solid #ccc;padding:5px 7px;display:flex;flex-direction:column;gap:5px}
-.bar{display:flex;flex-wrap:wrap;gap:5px;align-items:stretch}
-.grp{display:flex;align-items:center;gap:3px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:3px 5px}
-.grp>.lbl{font-size:11px;color:#78808d;white-space:nowrap;margin-right:2px}
+.bar{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch}
+.grp{display:flex;align-items:center;gap:2px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:3px 4px}
+.grp>.lbl{font-size:10px;color:#78808d;white-space:nowrap;margin-right:2px}
 button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
 button:hover{background:#e9edf2}
 button:disabled{opacity:.45;cursor:default;background:#fff}
 .grp button{padding:4px 5px}
+.grp select{padding:4px 2px}
 button.tool.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary:hover{background:#1765cc}
 #siteName{font:inherit;font-size:15px;padding:5px 9px;border:1px solid #bbb;border-radius:6px;width:320px}
-.swatch{width:21px;height:21px;border-radius:50%;border:2px solid #fff;outline:1px solid #999;cursor:pointer;padding:0}
+.swatch{width:19px;height:19px;border-radius:50%;border:2px solid #fff;outline:1px solid #999;cursor:pointer;padding:0}
 .swatch.active{outline:3px solid #1a73e8}
 .grp select{padding:4px}
 select,textarea,input[type=range]{font:inherit;padding:5px;border:1px solid #bbb;border-radius:6px;background:#fff}
@@ -118,6 +119,7 @@ footer .note2{min-width:0}
       </select>
       <button class="tool" data-tool="pin">📍 番号</button>
       <button class="tool" data-tool="guard">👮 警備員</button>
+      <button class="tool" data-tool="wash" title="生コン車（ミキサー車）の洗い場の位置を示すピンを置きます">🚿 洗い場</button>
       <button class="tool" data-tool="ellipse">◯ 丸</button>
       <button class="tool" data-tool="rect">□ 四角</button>
       <select id="rectTail" title="四角に、指したい場所を示す細いでっぱり（吹き出し）を付けます">
@@ -136,16 +138,16 @@ footer .note2{min-width:0}
     </div>
     <div class="grp">
       <span class="lbl">太さ</span>
-      <select id="thick" title="線・文字・ピンの大きさ">
-        <option value="0.12">1 極細</option>
-        <option value="0.18">2 とても細い</option>
-        <option value="0.25">3 かなり細い</option>
-        <option value="0.35">4 細い</option>
-        <option value="0.5" selected>5 標準</option>
-        <option value="0.7">6 やや太い</option>
-        <option value="1">7 太い</option>
-        <option value="1.5">8 とても太い</option>
-        <option value="2.2">9 極太</option>
+      <select id="thick" title="矢印・罫線・丸・四角の線の太さ（ピンと文字の大きさは変わりません）">
+        <option value="0.12">極細</option>
+        <option value="0.18">とても細い</option>
+        <option value="0.25">かなり細い</option>
+        <option value="0.35">細い</option>
+        <option value="0.5" selected>標準</option>
+        <option value="0.7">やや太い</option>
+        <option value="1">太い</option>
+        <option value="1.5">とても太い</option>
+        <option value="2.2">極太</option>
       </select>
       <span class="lbl">濃さ</span>
       <select id="alpha" title="線・図形の透明度">
@@ -244,7 +246,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='1.5';
+const APP_VERSION='1.6';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -292,6 +294,7 @@ const HINTS={
  line:'クリックで点を追加 → ダブルクリック（または右クリック／Enter）で線を確定。矢印の付かない線です。左の「線の種類」で実線・破線・点線などを選べます。Escで中止。',
  pin:'クリックした場所に番号ピン（1・2・3…）を置きます。',
  guard:'クリックした場所にガードマン（警備員）のピンを置きます。ダブルクリックで文字を変更できます。',
+ wash:'クリックした場所にミキサー車（生コン車）の洗い場のピンを置きます。ダブルクリックで文字を変更できます。',
  ellipse:'目印にしたい場所をドラッグして丸で囲みます。',
  rect:'目印にしたい場所をドラッグして四角で囲みます。すぐ右で「吹き出しあり」を選ぶと、指したい場所へ細いでっぱりが付きます（先端の黄色い□をドラッグして向きを変えられます）。',
  text:'クリックした場所に文字を入れます。あとから移動・拡大縮小できます。'
@@ -318,6 +321,11 @@ function thickMul(){ return parseFloat(thickSel.value); }
 function alphaVal(){ return parseFloat(alphaSel.value); }
 function dashVal(){ return dashSel.value; }
 function rectTailOn(){ return rectTailSel.value==='tail'; }
+/* ピンごとの決まった色。置いたあと、色ボタンで変えることもできます */
+const PIN_COLOR={guard:'#1a73e8', wash:'#00a040'};
+/* 「太さ」を使うのは線だけ。ピンと文字はいつも標準の大きさで置きます
+   （置いたあと、右下の□をドラッグすれば個別に大きさを変えられます） */
+function usesThickness(t){ return t==='arrow'||t==='line'||t==='ellipse'||t==='rect'; }
 /* 矢印と罫線は「クリックで点を置いていく」同じ操作なので、まとめて判定します */
 function isPoly(t){ return t==='arrow'||t==='line'; }
 /* 線の種類。線の太さ w に合わせて刻みも太さ相応にします */
@@ -677,6 +685,7 @@ function drawObj(o){
     case 'line':drawLine(o);break;
     case 'pin':drawPin(o);break;
     case 'guard':drawGuard(o);break;
+    case 'wash':drawWash(o);break;
     case 'ellipse':drawEllipse(o);break;
     case 'rect':drawRect(o);break;
     case 'text':drawText(o);break;
@@ -732,13 +741,54 @@ function drawBadge(x,y,r,num,col){
   ctx.fillText(String(num),x,y+r*0.06);
 }
 function drawPin(o){ drawBadge(o.x,o.y,pinR(o),o.num,o.color); }
-function drawGuard(o){
-  const r=guardR(o), cx=o.x, cy=o.y-r*1.414;
+/* しずく型のピンの土台。警備員と洗い場で共通に使います */
+function pinShape(o,r){
+  const cx=o.x, cy=o.y-r*1.414;
   ctx.beginPath();
   ctx.arc(cx,cy,r,0.75*Math.PI,0.25*Math.PI);
   ctx.lineTo(o.x,o.y); ctx.closePath();
   ctx.lineJoin='round'; ctx.lineWidth=Math.max(2,r*0.22); ctx.strokeStyle='#fff'; ctx.stroke();
   ctx.fillStyle=o.color; ctx.fill();
+  return {cx:cx,cy:cy};
+}
+/* ピンの下に出る文字 */
+function pinLabel(o,r){
+  if(!o.label)return;
+  const s=Math.max(9,r*0.85);
+  ctx.font='bold '+Math.round(s)+'px "Meiryo",sans-serif';
+  ctx.textAlign='center'; ctx.textBaseline='top'; ctx.lineJoin='round';
+  ctx.lineWidth=Math.max(2,s/5); ctx.strokeStyle='#fff';
+  ctx.strokeText(o.label,o.x,o.y+s*0.35);
+  ctx.fillStyle=o.color; ctx.fillText(o.label,o.x,o.y+s*0.35);
+}
+/* ミキサー車の洗い場。蛇口から水が落ちている絵にしています */
+function drawWash(o){
+  const r=guardR(o), p=pinShape(o,r), cx=p.cx, cy=p.cy;
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#fff';
+  ctx.lineCap='round'; ctx.lineJoin='round';
+  // 壁の取り付け金具
+  ctx.beginPath(); ctx.rect(cx-0.66*r,cy-0.60*r,0.16*r,0.32*r); ctx.fill();
+  // 横のパイプ
+  ctx.beginPath(); ctx.rect(cx-0.60*r,cy-0.52*r,0.68*r,0.16*r); ctx.fill();
+  // 下に向かう蛇口
+  ctx.beginPath(); ctx.rect(cx-0.08*r,cy-0.52*r,0.16*r,0.38*r); ctx.fill();
+  // ハンドル
+  ctx.beginPath(); ctx.rect(cx-0.34*r,cy-0.70*r,0.16*r,0.20*r); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(cx-0.26*r,cy-0.72*r,0.20*r,0.07*r,0,0,7); ctx.fill();
+  // 落ちる水（しずく3つ）
+  ctx.beginPath(); ctx.arc(cx,cy+0.06*r,0.115*r,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(cx,cy+0.33*r,0.09*r,0,7); ctx.fill();
+  // 受け止める水面
+  ctx.lineWidth=0.11*r;
+  ctx.beginPath();
+  ctx.moveTo(cx-0.46*r,cy+0.60*r);
+  ctx.quadraticCurveTo(cx-0.23*r,cy+0.46*r,cx,cy+0.60*r);
+  ctx.quadraticCurveTo(cx+0.23*r,cy+0.74*r,cx+0.46*r,cy+0.60*r);
+  ctx.stroke();
+  pinLabel(o,r);
+}
+function drawGuard(o){
+  const r=guardR(o), p=pinShape(o,r), cx=p.cx, cy=p.cy;
   ctx.fillStyle='#fff'; ctx.strokeStyle='#fff'; ctx.lineCap='round'; ctx.lineJoin='round';
   ctx.beginPath();
   ctx.moveTo(cx-0.40*r,cy+0.66*r);
@@ -755,14 +805,7 @@ function drawGuard(o){
   ctx.beginPath(); ctx.arc(cx,cy-0.37*r,0.24*r,Math.PI,0); ctx.fill();
   ctx.strokeStyle=o.color; ctx.lineWidth=0.05*r;
   ctx.beginPath(); ctx.moveTo(cx-0.20*r,cy-0.30*r); ctx.lineTo(cx+0.20*r,cy-0.30*r); ctx.stroke();
-  if(o.label){
-    const s=Math.max(9,r*0.85);
-    ctx.font='bold '+Math.round(s)+'px "Meiryo",sans-serif';
-    ctx.textAlign='center'; ctx.textBaseline='top'; ctx.lineJoin='round';
-    ctx.lineWidth=Math.max(2,s/5); ctx.strokeStyle='#fff';
-    ctx.strokeText(o.label,o.x,o.y+s*0.35);
-    ctx.fillStyle=o.color; ctx.fillText(o.label,o.x,o.y+s*0.35);
-  }
+  pinLabel(o,r);
 }
 function drawEllipse(o){
   if(o.rx<1||o.ry<1)return;
@@ -904,7 +947,7 @@ function getBBox(o){
       return {x:x,y:y,w:Math.max.apply(null,xs)-x,h:Math.max.apply(null,ys)-y};
     }
     case 'pin':{const r=pinR(o);return {x:o.x-r,y:o.y-r,w:r*2,h:r*2};}
-    case 'guard':{
+    case 'guard':case 'wash':{
       const r=guardR(o), lab=o.label?r*1.2:0;
       return {x:o.x-r,y:o.y-r*2.414,w:r*2,h:r*2.414+lab};
     }
@@ -936,7 +979,7 @@ function inBBox(o,p){
 function hitObj(o,p){
   const tol=Math.max(10,12/scaleNow());
   switch(o.type){
-    case 'map':case 'photo':case 'text':case 'guard':return inBBox(o,p);
+    case 'map':case 'photo':case 'text':case 'guard':case 'wash':return inBBox(o,p);
     case 'pin':return Math.hypot(p.x-o.x,p.y-o.y)<=pinR(o)+tol/2;
     case 'ellipse':{
       if(o.rx<1||o.ry<1)return false;
@@ -1005,7 +1048,7 @@ function nearestOpt(sel,v){
 }
 function syncStyleUI(){
   if(!selected)return;
-  if(selected.mul!=null)thickSel.value=nearestOpt(thickSel,selected.mul);
+  if(selected.mul!=null&&usesThickness(selected.type))thickSel.value=nearestOpt(thickSel,selected.mul);
   alphaSel.value=nearestOpt(alphaSel,selected.alpha==null?1:selected.alpha);
   if(selected.type==='line'&&selected.dash)dashSel.value=selected.dash;
   if(selected.type==='rect')rectTailSel.value=selected.tail?'tail':'none';
@@ -1125,17 +1168,19 @@ cv.addEventListener('click',e=>{
     redraw();
   }else if(tool==='pin'){
     pushUndo();
-    objects.push({type:'pin',x:p.x,y:p.y,num:nextNum('pin'),mul:thickMul(),color:color,alpha:alphaVal()});
+    objects.push({type:'pin',x:p.x,y:p.y,num:nextNum('pin'),mul:1,color:color,alpha:alphaVal()});
     redraw();
-  }else if(tool==='guard'){
+  }else if(tool==='guard'||tool==='wash'){
     pushUndo();
-    objects.push({type:'guard',x:p.x,y:p.y,label:'警備員',mul:thickMul(),color:color,alpha:alphaVal()});
+    objects.push({type:tool,x:p.x,y:p.y,
+      label:(tool==='guard')?'警備員':'ミキサー洗い場',
+      mul:1,color:PIN_COLOR[tool],alpha:alphaVal()});
     redraw();
   }else if(tool==='text'){
     const t=prompt('表示する文字を入力してください','この先 入口');
     if(t){
       pushUndo();
-      objects.push({type:'text',x:p.x,y:p.y,text:t,mul:thickMul(),color:color,alpha:alphaVal()});
+      objects.push({type:'text',x:p.x,y:p.y,text:t,mul:1,color:color,alpha:alphaVal()});
       redraw();
     }
   }
@@ -1147,8 +1192,8 @@ cv.addEventListener('dblclick',e=>{
     if(selected.type==='text'){
       const t=prompt('文字を変更',selected.text);
       if(t!==null&&t!==''){pushUndo();selected.text=t;redraw();}
-    }else if(selected.type==='guard'){
-      const t=prompt('ガードマンの文字を変更（空欄にすると文字なし）',selected.label);
+    }else if(selected.type==='guard'||selected.type==='wash'){
+      const t=prompt('ピンの文字を変更（空欄にすると文字なし）',selected.label);
       if(t!==null){pushUndo();selected.label=t;redraw();}
     }else if(selected.type==='pin'||selected.type==='photo'){
       const n=parseInt(prompt('番号を変更',selected.num),10);
@@ -1185,7 +1230,8 @@ document.querySelectorAll('.swatch').forEach(b=>b.addEventListener('click',()=>{
   if(selected&&selected.type!=='map'){pushUndo();selected.color=color;redraw();}
 }));
 thickSel.addEventListener('change',()=>{
-  if(selected&&selected.mul!=null){ pushUndo(); selected.mul=thickMul(); redraw(); }
+  // ピンと文字は「太さ」で大きさが変わらないようにしています
+  if(selected&&selected.mul!=null&&usesThickness(selected.type)){ pushUndo(); selected.mul=thickMul(); redraw(); }
 });
 alphaSel.addEventListener('change',()=>{
   if(selected){ pushUndo(); selected.alpha=alphaVal(); redraw(); }
