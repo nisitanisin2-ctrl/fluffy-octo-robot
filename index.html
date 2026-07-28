@@ -45,7 +45,7 @@ input[type=range]{padding:0}
 #side{width:262px;flex:none;background:#fff;border-left:1px solid #ccc;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden}
 .sec{display:flex;flex-direction:column;flex:none;border-bottom:1px solid #e4e4e4}
 .sec:last-child{border-bottom:none}
-.secHead,.row,.btnRow,.note,#dropZone,#btnPhotoFile,#footText,#btnArrange{flex:none}
+.secHead,.row,.btnRow,.note,#dropZone,#btnPasteHere,#btnPhotoFile,#footText,#btnArrange{flex:none}
 .secHead{padding:8px 10px 6px;font-weight:bold;background:#f7f8fa}
 .row{display:flex;align-items:center;gap:6px;padding:0 10px 8px;font-size:13px;color:#444}
 .row select,.row input[type=range]{flex:1;min-width:0}
@@ -57,7 +57,7 @@ input[type=range]{padding:0}
 #dropZone{margin:10px;padding:12px 8px;border:2px dashed #bbb;border-radius:10px;text-align:center;color:#666;cursor:pointer;line-height:1.7;background:#fafafa}
 #dropZone.armed{border-color:#1a73e8;background:#eaf2fe;color:#14488f}
 #dropZone kbd{background:#333;color:#fff;border-radius:4px;padding:1px 6px;font-size:12px}
-#btnPhotoFile{margin:0 10px 8px}
+#btnPasteHere,#btnPhotoFile{margin:0 10px 8px}
 #trayList{flex:1;overflow-y:auto;padding:0 10px 10px;min-height:56px}
 .titem{position:relative;margin-bottom:10px;border:1px solid #ddd;border-radius:8px;overflow:hidden;cursor:pointer;background:#fdfdfd}
 .titem:hover{border-color:#1a73e8;box-shadow:0 0 0 2px rgba(26,115,232,.25)}
@@ -206,6 +206,7 @@ footer .note2{min-width:0}
         ここをクリックしてから<br><kbd>Ctrl</kbd>+<kbd>V</kbd> で写真を貼り付け<br>
         <small>（画像のドラッグ＆ドロップも可）</small>
       </div>
+      <button id="btnPasteHere" class="primary" title="切り取った写真を、キーボードを使わずにここへ貼り付けます（Ctrl+V と同じ働きです）">📋 ここに貼り付ける</button>
       <div class="note">ストリートビューなどの画面も、<kbd>Win</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> で範囲を切り取ってから貼り付けられます。</div>
       <button id="btnPhotoFile">📁 ファイルから追加</button>
       <label class="row">場所の示し方
@@ -249,7 +250,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='1.9';
+const APP_VERSION='2.0';
 const APP_DATE='2026-07-28';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -342,7 +343,7 @@ function dashPattern(kind,w){
 }
 function lineW(o){ return Math.max(1,base*o.mul); }
 function pinR(o){ return base*2.2*o.mul; }
-function guardR(o){ return base*2.5*o.mul; }   // 警備員・洗い場のピンの大きさ
+function guardR(o){ return base*2.1*o.mul; }   // 警備員・洗い場のピンの大きさ
 function textSize(o){ return Math.max(7,base*3.2*o.mul); }
 function setHint(msg){ hintEl.textContent=(msg!==undefined)?msg:(HINTS[tool]||''); }
 function scaleNow(){ return fitScale*userZoom; }
@@ -504,6 +505,32 @@ function armTray(on){
     : 'ここをクリックしてから<br><kbd>Ctrl</kbd>+<kbd>V</kbd> で写真を貼り付け<br><small>（画像のドラッグ＆ドロップも可）</small>';
 }
 dropZone.onclick=()=>armTray(true);
+/* 「ここに貼り付ける」ボタン。Ctrl+V を押さなくても、切り取った写真を取り込めます。
+   ブラウザにクリップボードを読ませるので、初回は許可を聞かれることがあります */
+document.getElementById('btnPasteHere').onclick=async ()=>{
+  armTray(true);
+  if(!(navigator.clipboard&&navigator.clipboard.read)){
+    setHint('このブラウザではボタンから貼り付けできません。上の枠をクリックしてから Ctrl+V を押してください。');
+    alert('このブラウザでは、ボタンからの貼り付けに対応していません。\n\n上の枠をクリックしてから、キーボードの Ctrl+V を押してください。');
+    return;
+  }
+  try{
+    const items=await navigator.clipboard.read();
+    for(const it of items){
+      const type=(it.types||[]).find(t=>t.indexOf('image/')===0);
+      if(type){
+        const src=await fileToDataURL(await it.getType(type));
+        await addTrayPhoto(src);
+        return;
+      }
+    }
+    setHint('切り取った写真が見つかりませんでした。Win+Shift+S で画面を切り取ってから、もう一度押してください。');
+    alert('切り取った写真が見つかりませんでした。\n\nWin+Shift+S で画面の範囲を切り取ってから、もう一度このボタンを押してください。');
+  }catch(err){
+    setHint('貼り付けできませんでした。上の枠をクリックしてから Ctrl+V を押してください。');
+    alert('貼り付けできませんでした。\n\nブラウザから「クリップボードの読み取り」を聞かれたら〔許可〕を選んでください。\n許可が出ない場合は、上の枠をクリックしてから Ctrl+V を押してください。');
+  }
+};
 document.getElementById('btnPhotoFile').onclick=()=>{ armTray(true); filePhoto.click(); };
 document.getElementById('side').addEventListener('pointerdown',()=>armTray(true));
 stage.addEventListener('pointerdown',()=>armTray(false));
