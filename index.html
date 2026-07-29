@@ -131,6 +131,15 @@ footer .note2{min-width:0}
         <option value="dashdot">一点鎖線</option>
         <option value="dashdotdot">二点鎖線</option>
       </select>
+      <button class="tool" data-tool="road" title="道を2本の線（2重線）で描きます。線の太さは左の「太さ」、線と線の間は右の「道幅」で選べます">🛣 道</button>
+      <select id="roadGapSel" title="道の2本の線の間（道幅）を選びます">
+        <option value="1.2">道幅 とても狭い</option>
+        <option value="1.8">道幅 狭い</option>
+        <option value="2.6" selected>道幅 標準</option>
+        <option value="3.6">道幅 広い</option>
+        <option value="5">道幅 とても広い</option>
+        <option value="7">道幅 最大</option>
+      </select>
       <button class="tool" data-tool="pin">📍 番号</button>
       <button class="tool" data-tool="guard">👮 警備員</button>
       <button class="tool" data-tool="wash" title="生コン車（ミキサー車）の洗い場の位置を示すピンを置きます">🚿 洗い場</button>
@@ -213,6 +222,9 @@ footer .note2{min-width:0}
       <div class="btnRow">
         <button id="btnRotateMap" title="貼り付けた地図を、時計回りに90度回します。4回押すと元に戻ります">↻ 地図を90度回す</button>
       </div>
+      <div class="btnRow">
+        <button id="btnGuideBox" title="用紙の中央に出ている「ここに地図を貼り付けます」の案内を、消したり出したりします（もともと印刷や画像保存には出ません）">🙈 案内を消す</button>
+      </div>
       <div class="note" id="mapNote">地図を読み込むと、ここで大きさを調整できます。</div>
     </div>
     <div class="sec" style="flex:1 0 auto">
@@ -273,8 +285,8 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='2.7';
-const APP_DATE='2026-07-28';
+const APP_VERSION='2.8';
+const APP_DATE='2026-07-29';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const stage=document.getElementById('stage');
@@ -283,6 +295,7 @@ const siteName=document.getElementById('siteName');
 const thickSel=document.getElementById('thick');
 const alphaSel=document.getElementById('alpha');
 const dashSel=document.getElementById('dashSel');
+const roadGapSel=document.getElementById('roadGapSel');
 const rectTailSel=document.getElementById('rectTail');
 const photoModeSel=document.getElementById('photoMode');
 const orientSel=document.getElementById('orient');
@@ -314,11 +327,13 @@ let drawing=null, cursorPos=null, selected=null;
 let dragMode=null, dragStart=null, dragIndex=-1, resizeRef=null;
 let preSnap=null, movedInDrag=false;
 let tempShape=null, cascade=0, pasteTarget='map', exporting=false;
+let showPlaceholder=true;             // 用紙の中央に出す「ここに地図を貼り付けます」の案内
 
 const HINTS={
  select:'書き込みをクリックで選択、ドラッグで移動。右下の□で大きさ変更。矢印は角の□で形を直せます。下スペースの境目は、中央のつまみを上下にドラッグしても変えられます。',
  arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。Escで中止。',
  line:'クリックで点を追加 → ダブルクリック（または右クリック／Enter）で線を確定。矢印の付かない線です。左の「線の種類」で実線・破線・点線などを選べます。Escで中止。',
+ road:'道の真ん中をクリックしていくと、2本の線（2重線）で道を描きます → ダブルクリック（または右クリック／Enter）で確定。線の太さは「太さ」、線と線の間は「道幅」で選べます。Escで中止。',
  pin:'クリックした場所に番号ピン（1・2・3…）を置きます。',
  guard:'クリックした場所にガードマン（警備員）のピンを置きます。ダブルクリックで文字を変更できます。',
  wash:'クリックした場所にミキサー車（生コン車）の洗い場のピンを置きます。ダブルクリックで文字を変更できます。',
@@ -349,11 +364,12 @@ function thickMul(){ return parseFloat(thickSel.value); }
 function alphaVal(){ return parseFloat(alphaSel.value); }
 function dashVal(){ return dashSel.value; }
 function rectTailOn(){ return rectTailSel.value==='tail'; }
+function roadGapVal(){ return parseFloat(roadGapSel.value); }
 /* 「太さ」を使うのは線だけ。ピンと文字はいつも標準の大きさで置きます
    （置いたあと、右下の□をドラッグすれば個別に大きさを変えられます） */
-function usesThickness(t){ return t==='arrow'||t==='line'||t==='ellipse'||t==='rect'; }
-/* 矢印と罫線は「クリックで点を置いていく」同じ操作なので、まとめて判定します */
-function isPoly(t){ return t==='arrow'||t==='line'; }
+function usesThickness(t){ return t==='arrow'||t==='line'||t==='road'||t==='ellipse'||t==='rect'; }
+/* 矢印・罫線・道は「クリックで点を置いていく」同じ操作なので、まとめて判定します */
+function isPoly(t){ return t==='arrow'||t==='line'||t==='road'; }
 /* 線の種類。線の太さ w に合わせて刻みも太さ相応にします */
 function dashPattern(kind,w){
   switch(kind){
@@ -366,6 +382,9 @@ function dashPattern(kind,w){
   }
 }
 function lineW(o){ return Math.max(1,base*o.mul); }
+/* 道の2本の線の間（道幅）。線の太さとは別に選べますが、
+   太い線を細い道幅で描くと2本がくっついてしまうので、最低限の間はあけます */
+function roadGap(o){ return Math.max(base*(o.gap==null?2.6:o.gap),lineW(o)*1.4); }
 function pinR(o){ return base*2.2*o.mul; }
 function guardR(o){ return base*2.1*o.mul; }   // 警備員・洗い場・現場のピンの大きさ
 /* ピンを置いたときに、下に出る文字の初期値 */
@@ -461,6 +480,7 @@ function updateMapNote(){
   const on=!!mo;
   ['mapZoom','btnMapSmaller','btnMapBigger','btnFitContain','btnFitCover','btnPickMap','btnRotateMap']
     .forEach(id=>{ document.getElementById(id).disabled=!on; });
+  updateGuideBoxBtn();
   if(!on){
     mapNote.textContent='地図を読み込むと、ここで大きさを調整できます。';
     document.getElementById('mapZoomLabel').textContent='—';
@@ -589,9 +609,9 @@ function redraw(){
   if(tempShape){ ctx.save(); ctx.globalAlpha=0.75; (tempShape.type==='rect'?drawRect:drawEllipse)(tempShape); ctx.restore(); }
   if(drawing){
     const pts=drawing.points.concat(cursorPos?[cursorPos]:[]);
-    const prev={points:pts,mul:thickMul(),color:color,dash:dashVal()};
+    const prev={points:pts,mul:thickMul(),color:color,dash:dashVal(),gap:roadGapVal()};
     ctx.save(); ctx.globalAlpha=0.75*alphaVal();
-    if(pts.length>=2)(drawing.type==='line'?drawLine:drawArrow)(prev);
+    if(pts.length>=2)(drawing.type==='road'?drawRoad:drawing.type==='line'?drawLine:drawArrow)(prev);
     else if(pts.length===1){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,base*0.7,0,7); ctx.fill(); }
     ctx.restore();
   }
@@ -656,7 +676,7 @@ function drawGuides(){
     ctx.strokeStyle='rgba(240,150,0,.85)';
     ctx.strokeRect(1,dividerY()+1,cv.width-2,fh-2);
   }
-  if(!getMap())drawMapPlaceholder(r);
+  if(!getMap()&&showPlaceholder)drawMapPlaceholder(r);
   const t=tabRect();
   ctx.setLineDash([]);
   ctx.fillStyle='rgba(255,255,255,.95)'; ctx.strokeStyle='rgba(240,150,0,.95)';
@@ -747,6 +767,7 @@ function drawObj(o){
   switch(o.type){
     case 'arrow':drawArrow(o);break;
     case 'line':drawLine(o);break;
+    case 'road':drawRoad(o);break;
     case 'pin':drawPin(o);break;
     case 'guard':drawGuard(o);break;
     case 'wash':case 'genba':drawStamp(o);break;
@@ -795,6 +816,48 @@ function drawLine(o){
   const w=lineW(o), outer=halo(w), d=dashPattern(o.dash,w);
   strokePts(pts,outer,'#ffffff',d);
   strokePts(pts,w,o.color,d);
+}
+/* 折れ線を、真横に d だけずらした線を作ります（d が負なら反対側）。
+   曲がり角では、前後の線の外側の交点に寄せて、2本の線がきれいにつながるようにします。
+   鋭角に折り返したときに角が飛び出しすぎないよう、伸ばす量には上限を付けています */
+function offsetPoly(pts,d){
+  const n=pts.length, norms=[], out=[];
+  for(let i=0;i<n-1;i++){
+    const dx=pts[i+1].x-pts[i].x, dy=pts[i+1].y-pts[i].y;
+    const L=Math.hypot(dx,dy)||1;
+    norms.push({x:-dy/L,y:dx/L});          // 進む向きに対して真横の向き
+  }
+  if(!norms.length)return pts.slice();
+  for(let i=0;i<n;i++){
+    const a=norms[i-1], b=norms[i];
+    if(!a||!b){                            // 端の点は、その線の法線どおりにずらす
+      const s=b||a;
+      out.push({x:pts[i].x+s.x*d,y:pts[i].y+s.y*d});
+      continue;
+    }
+    let mx=a.x+b.x, my=a.y+b.y;
+    const L=Math.hypot(mx,my);
+    if(L<1e-6){                            // 真後ろへ折り返した所は、そのままずらす
+      out.push({x:pts[i].x+a.x*d,y:pts[i].y+a.y*d});
+      continue;
+    }
+    mx/=L; my/=L;
+    const cos=Math.max(0.25,mx*a.x+my*a.y);
+    out.push({x:pts[i].x+mx*d/cos,y:pts[i].y+my*d/cos});
+  }
+  return out;
+}
+/* 道。真ん中を通る折れ線の両側に、同じ形の線を2本描きます（2重線）。
+   白フチを2本ぶん先に描いてから本線を重ねるので、
+   フチが相手の線を消してしまうことはありません */
+function drawRoad(o){
+  const pts=o.points; if(pts.length<2)return;
+  const w=lineW(o), g=roadGap(o)/2;
+  const a=offsetPoly(pts,g), b=offsetPoly(pts,-g);
+  strokePts(a,halo(w),'#ffffff');
+  strokePts(b,halo(w),'#ffffff');
+  strokePts(a,w,o.color);
+  strokePts(b,w,o.color);
 }
 function drawBadge(x,y,r,num,col){
   ctx.beginPath(); ctx.arc(x,y,r,0,7);
@@ -1020,10 +1083,15 @@ function getBBox(o){
       const x2=Math.min(o.x+o.w,r.x+r.w), y2=Math.min(o.y+o.h,r.y+r.h);
       return {x:x,y:y,w:Math.max(10,x2-x),h:Math.max(10,y2-y)};
     }
-    case 'arrow':case 'line':{
+    case 'arrow':case 'line':case 'road':{
       const xs=o.points.map(p=>p.x),ys=o.points.map(p=>p.y);
-      const x=Math.min.apply(null,xs),y=Math.min.apply(null,ys);
-      return {x:x,y:y,w:Math.max.apply(null,xs)-x,h:Math.max.apply(null,ys)-y};
+      let x=Math.min.apply(null,xs),y=Math.min.apply(null,ys);
+      let w=Math.max.apply(null,xs)-x,h=Math.max.apply(null,ys)-y;
+      if(o.type==='road'){                     // 道は真ん中の線より両側へ広がります
+        const p=roadGap(o)/2+halo(lineW(o))/2;
+        x-=p; y-=p; w+=p*2; h+=p*2;
+      }
+      return {x:x,y:y,w:w,h:h};
     }
     case 'pin':{const r=pinR(o);return {x:o.x-r,y:o.y-r,w:r*2,h:r*2};}
     case 'guard':{
@@ -1075,9 +1143,11 @@ function hitObj(o,p){
       const inner=(p.x>=o.x+t&&p.x<=o.x+o.w-t&&p.y>=o.y+t&&p.y<=o.y+o.h-t);
       return outer&&!inner;
     }
-    case 'arrow':case 'line':{
+    case 'arrow':case 'line':case 'road':{
+      // 道は2本の線の間（道の上）をクリックしても選べるようにします
+      const t=Math.max(tol,lineW(o)*0.8)+(o.type==='road'?roadGap(o)/2:0);
       for(let i=0;i<o.points.length-1;i++)
-        if(distSeg(p,o.points[i],o.points[i+1])<=Math.max(tol,lineW(o)*0.8))return true;
+        if(distSeg(p,o.points[i],o.points[i+1])<=t)return true;
       return false;
     }
   }
@@ -1109,7 +1179,7 @@ function hitTest(p){
 }
 function moveObj(o,dx,dy){
   switch(o.type){
-    case 'arrow':case 'line':o.points.forEach(pt=>{pt.x+=dx;pt.y+=dy;});break;
+    case 'arrow':case 'line':case 'road':o.points.forEach(pt=>{pt.x+=dx;pt.y+=dy;});break;
     case 'ellipse':o.cx+=dx;o.cy+=dy;break;
     default:o.x+=dx;o.y+=dy;
   }
@@ -1134,6 +1204,7 @@ function syncStyleUI(){
   if(selected.mul!=null&&usesThickness(selected.type))thickSel.value=nearestOpt(thickSel,selected.mul);
   alphaSel.value=nearestOpt(alphaSel,selected.alpha==null?1:selected.alpha);
   if(selected.type==='line'&&selected.dash)dashSel.value=selected.dash;
+  if(selected.type==='road'&&selected.gap!=null)roadGapSel.value=nearestOpt(roadGapSel,selected.gap);
   if(selected.type==='rect')rectTailSel.value=selected.tail?'tail':'none';
   if(selected.type==='photo'&&selected.mode)photoModeSel.value=selected.mode;
 }
@@ -1145,6 +1216,7 @@ function finalizeArrow(){
     pushUndo();
     const o={type:kind,points:pts,mul:thickMul(),color:color,alpha:alphaVal()};
     if(kind==='line')o.dash=dashVal();
+    if(kind==='road')o.gap=roadGapVal();
     objects.push(o);
   }
   redraw();
@@ -1325,6 +1397,11 @@ dashSel.addEventListener('change',()=>{
   if(selected&&selected.type==='line'){ pushUndo(); selected.dash=dashVal(); redraw(); }
   else if(tool==='line'&&drawing)redraw();
 });
+roadGapSel.addEventListener('change',()=>{
+  // 道を選んでいれば、その道の幅を変える。何も選んでいなければ次に引く道に使う
+  if(selected&&selected.type==='road'){ pushUndo(); selected.gap=roadGapVal(); redraw(); }
+  else if(tool==='road'&&drawing)redraw();
+});
 rectTailSel.addEventListener('change',()=>{
   // 四角を選んでいれば、その四角の吹き出しを付け外しする
   if(selected&&selected.type==='rect'){
@@ -1391,6 +1468,20 @@ document.getElementById('btnRotateMap').onclick=async ()=>{
   if(wasContain)fitMap('contain');
   updateMapNote(); redraw();
   setHint('地図を90度回しました。もう一度押すと、さらに90度回ります。位置や大きさは右の「大きさ」「枠に収める」で直せます。');
+};
+/* 用紙の中央に出る「ここに地図を貼り付けます」の案内を、消したり出したりします。
+   もともと印刷や画像保存には出ませんが、画面が見づらいときのために消せるようにしています */
+const btnGuideBox=document.getElementById('btnGuideBox');
+function updateGuideBoxBtn(){
+  btnGuideBox.textContent=showPlaceholder?'🙈 案内を消す':'👁 案内を出す';
+  btnGuideBox.disabled=!!getMap();          // 地図を入れたあとは、もともと出ません
+}
+btnGuideBox.onclick=()=>{
+  showPlaceholder=!showPlaceholder;
+  updateGuideBoxBtn(); redraw();
+  setHint(showPlaceholder
+    ? '地図の貼り付け方の案内を、また出すようにしました。'
+    : '案内を消しました。もう一度出すときは、右の「👁 案内を出す」を押してください。');
 };
 document.getElementById('btnPickMap').onclick=()=>{
   const mo=getMap();
@@ -1600,6 +1691,7 @@ function migrate(o){
   }
   if(o.alpha==null)o.alpha=1;
   if(o.type==='line'&&!o.dash)o.dash='solid';
+  if(o.type==='road'&&o.gap==null)o.gap=2.6;
   if(o.type==='photo'&&!o.mode)o.mode='num';
   delete o.width; delete o.size;
   return o;
