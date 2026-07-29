@@ -1,0 +1,5 @@
+# Electron 本体（npm install で入れ直せるので、GitHub には上げません）
+node_modules/
+package-lock.json
+# 出来上がった exe など
+dist/

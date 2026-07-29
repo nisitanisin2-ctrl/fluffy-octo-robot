@@ -1,0 +1,13 @@
+{
+  "name": "genba-keiro-desktop",
+  "version": "1.0.0",
+  "description": "現場経路作成アプリ（パソコン用）。アプリの中に地図を開いて、範囲を選んでそのまま貼り付けられます。",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^40.0.0"
+  }
+}
