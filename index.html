@@ -32,6 +32,8 @@ button.tool.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary{background:#1a73e8;color:#fff;border-color:#1a73e8}
 button.primary:hover{background:#1765cc}
 #siteName{font:inherit;font-size:15px;padding:5px 9px;border:1px solid #bbb;border-radius:6px;width:320px}
+label.chk{display:flex;align-items:center;gap:4px;font-size:12.5px;color:#333;white-space:nowrap;cursor:pointer;padding:0 2px}
+label.chk input{width:16px;height:16px;margin:0;cursor:pointer}
 .swatch{width:19px;height:19px;border-radius:50%;border:2px solid #fff;outline:1px solid #999;cursor:pointer;padding:0}
 .swatch.active{outline:3px solid #1a73e8}
 .grp select{padding:4px}
@@ -93,6 +95,11 @@ footer .note2{min-width:0}
     <div class="grp">
       <span class="lbl">現場名</span>
       <input id="siteName" placeholder="用紙の上に印刷されます">
+      <select id="titleAlign" title="現場名を、用紙の上のどこに印刷するかを選びます">
+        <option value="left" selected>左寄せ</option>
+        <option value="center">中央</option>
+        <option value="right">右寄せ</option>
+      </select>
     </div>
     <div class="grp">
       <span class="lbl">地図</span>
@@ -182,6 +189,12 @@ footer .note2{min-width:0}
         <option value="0.4">40%</option>
         <option value="0.25">25%</option>
       </select>
+    </div>
+    <div class="grp">
+      <span class="lbl">線の角</span>
+      <label class="chk" title="チェックを入れると、矢印・罫線・道の曲がり角が、角ばらずになめらかなカーブになります。線を選んでから切り替えると、その線だけ変えられます">
+        <input type="checkbox" id="smoothChk">⌒ カーブを丸くする
+      </label>
     </div>
     <div class="grp">
       <span class="lbl">編集</span>
@@ -285,7 +298,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='2.8';
+const APP_VERSION='2.9';
 const APP_DATE='2026-07-29';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -296,6 +309,8 @@ const thickSel=document.getElementById('thick');
 const alphaSel=document.getElementById('alpha');
 const dashSel=document.getElementById('dashSel');
 const roadGapSel=document.getElementById('roadGapSel');
+const smoothChk=document.getElementById('smoothChk');
+const titleAlignSel=document.getElementById('titleAlign');
 const rectTailSel=document.getElementById('rectTail');
 const photoModeSel=document.getElementById('photoMode');
 const orientSel=document.getElementById('orient');
@@ -331,9 +346,9 @@ let showPlaceholder=true;             // 用紙の中央に出す「ここに地
 
 const HINTS={
  select:'書き込みをクリックで選択、ドラッグで移動。右下の□で大きさ変更。矢印は角の□で形を直せます。下スペースの境目は、中央のつまみを上下にドラッグしても変えられます。',
- arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。Escで中止。',
+ arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。「⌒ カーブを丸くする」にチェックを入れると、曲がり角がなめらかになります。Escで中止。',
  line:'クリックで点を追加 → ダブルクリック（または右クリック／Enter）で線を確定。矢印の付かない線です。左の「線の種類」で実線・破線・点線などを選べます。Escで中止。',
- road:'道の真ん中をクリックしていくと、2本の線（2重線）で道を描きます → ダブルクリック（または右クリック／Enter）で確定。線の太さは「太さ」、線と線の間は「道幅」で選べます。Escで中止。',
+ road:'道の真ん中をクリックしていくと、2本の線（2重線）で道を描きます → ダブルクリック（または右クリック／Enter）で確定。線の太さは「太さ」、線と線の間は「道幅」で選べます。「⌒ カーブを丸くする」で曲がり角をなめらかにできます。Escで中止。',
  pin:'クリックした場所に番号ピン（1・2・3…）を置きます。',
  guard:'クリックした場所にガードマン（警備員）のピンを置きます。ダブルクリックで文字を変更できます。',
  wash:'クリックした場所にミキサー車（生コン車）の洗い場のピンを置きます。ダブルクリックで文字を変更できます。',
@@ -609,7 +624,8 @@ function redraw(){
   if(tempShape){ ctx.save(); ctx.globalAlpha=0.75; (tempShape.type==='rect'?drawRect:drawEllipse)(tempShape); ctx.restore(); }
   if(drawing){
     const pts=drawing.points.concat(cursorPos?[cursorPos]:[]);
-    const prev={points:pts,mul:thickMul(),color:color,dash:dashVal(),gap:roadGapVal()};
+    const prev={type:drawing.type,points:pts,mul:thickMul(),color:color,
+                dash:dashVal(),gap:roadGapVal(),smooth:smoothChk.checked};
     ctx.save(); ctx.globalAlpha=0.75*alphaVal();
     if(pts.length>=2)(drawing.type==='road'?drawRoad:drawing.type==='line'?drawLine:drawArrow)(prev);
     else if(pts.length===1){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,base*0.7,0,7); ctx.fill(); }
@@ -620,13 +636,17 @@ function redraw(){
     if(selected)drawSelection(selected);
   }
 }
+/* 用紙の上の見出し（現場名）。左寄せ・中央・右寄せから選べます。
+   左右の端は、用紙の余白（10mm）にそろえています */
 function drawTitle(){
   const h=headPx(); if(!h)return;
-  const s=h*0.48;
+  const s=h*0.48, a=titleAlignSel.value;
+  const x=(a==='center')?cv.width/2:(a==='right')?cv.width-MM*10:MM*10;
   ctx.save();
   ctx.font='bold '+Math.round(s)+'px "Meiryo",sans-serif';
-  ctx.textAlign='left'; ctx.textBaseline='middle'; ctx.fillStyle='#111';
-  ctx.fillText('現場経路図　'+siteName.value.trim(),MM*10,h*0.55);
+  ctx.textAlign=(a==='center')?'center':(a==='right')?'right':'left';
+  ctx.textBaseline='middle'; ctx.fillStyle='#111';
+  ctx.fillText('現場経路図　'+siteName.value.trim(),x,h*0.55);
   ctx.restore();
 }
 function layoutFootText(){
@@ -778,6 +798,40 @@ function drawObj(o){
   }
   ctx.restore();
 }
+/* 「カーブを丸くする」にチェックが入っている線の下ごしらえ。
+   折れ曲がっている所を、角の手前と先を結ぶなめらかな曲線に置き換えて、
+   点をたくさん並べた折れ線として返します（描く側は今までどおりで済みます）。
+   角から r だけ手前を曲がり始めにしますが、短い線では線の半分までに抑えるので、
+   曲がり角が近くても曲線どうしが重なりません */
+function smoothPts(pts,r){
+  if(!pts||pts.length<3||!(r>0))return pts;
+  const out=[{x:pts[0].x,y:pts[0].y}], STEP=12;
+  for(let i=1;i<pts.length-1;i++){
+    const p=pts[i], a=pts[i-1], b=pts[i+1];
+    const L1=Math.hypot(a.x-p.x,a.y-p.y), L2=Math.hypot(b.x-p.x,b.y-p.y);
+    if(L1<0.5||L2<0.5){ out.push({x:p.x,y:p.y}); continue; }
+    const t1=Math.min(r,L1*0.5), t2=Math.min(r,L2*0.5);
+    const A={x:p.x+(a.x-p.x)/L1*t1,y:p.y+(a.y-p.y)/L1*t1};
+    const B={x:p.x+(b.x-p.x)/L2*t2,y:p.y+(b.y-p.y)/L2*t2};
+    out.push(A);
+    for(let k=1;k<STEP;k++){                    // A→角→B を通るなめらかな曲線
+      const u=k/STEP, w=1-u;
+      out.push({x:w*w*A.x+2*w*u*p.x+u*u*B.x, y:w*w*A.y+2*w*u*p.y+u*u*B.y});
+    }
+    out.push(B);
+  }
+  const e=pts[pts.length-1];
+  out.push({x:e.x,y:e.y});
+  return out;
+}
+/* 角を丸めるときの、曲がり始めの長さ。
+   道は2本の線の内側がつぶれないように、線と線の間より大きめにします */
+function curveR(o){
+  return (o.type==='road')?Math.max(base*3,roadGap(o))
+                          :Math.max(base*3,lineW(o)*3);
+}
+/* 実際に描く点。チェックが入っていなければ、そのままの折れ線です */
+function pathPts(o){ return o.smooth?smoothPts(o.points,curveR(o)):o.points; }
 function strokePts(pts,w,col,dash){
   ctx.strokeStyle=col; ctx.lineWidth=w; ctx.lineJoin='round'; ctx.lineCap='round';
   ctx.setLineDash(dash||[]);
@@ -795,7 +849,7 @@ function fillHead(tip,ang,len,col){
   ctx.closePath(); ctx.fill();
 }
 function drawArrow(o){
-  const pts=o.points; if(pts.length<2)return;
+  const pts=pathPts(o); if(pts.length<2)return;
   const w=lineW(o), outer=halo(w);
   const tip=pts[pts.length-1], prev=pts[pts.length-2];
   const ang=Math.atan2(tip.y-prev.y,tip.x-prev.x);
@@ -812,7 +866,7 @@ function drawArrow(o){
 }
 /* 矢印の付かない線。矢印と同じく白フチ付きで、地図の上でも見やすくします */
 function drawLine(o){
-  const pts=o.points; if(pts.length<2)return;
+  const pts=pathPts(o); if(pts.length<2)return;
   const w=lineW(o), outer=halo(w), d=dashPattern(o.dash,w);
   strokePts(pts,outer,'#ffffff',d);
   strokePts(pts,w,o.color,d);
@@ -851,7 +905,7 @@ function offsetPoly(pts,d){
    白フチを2本ぶん先に描いてから本線を重ねるので、
    フチが相手の線を消してしまうことはありません */
 function drawRoad(o){
-  const pts=o.points; if(pts.length<2)return;
+  const pts=pathPts(o); if(pts.length<2)return;
   const w=lineW(o), g=roadGap(o)/2;
   const a=offsetPoly(pts,g), b=offsetPoly(pts,-g);
   strokePts(a,halo(w),'#ffffff');
@@ -1205,6 +1259,7 @@ function syncStyleUI(){
   alphaSel.value=nearestOpt(alphaSel,selected.alpha==null?1:selected.alpha);
   if(selected.type==='line'&&selected.dash)dashSel.value=selected.dash;
   if(selected.type==='road'&&selected.gap!=null)roadGapSel.value=nearestOpt(roadGapSel,selected.gap);
+  if(isPoly(selected.type))smoothChk.checked=!!selected.smooth;
   if(selected.type==='rect')rectTailSel.value=selected.tail?'tail':'none';
   if(selected.type==='photo'&&selected.mode)photoModeSel.value=selected.mode;
 }
@@ -1217,6 +1272,7 @@ function finalizeArrow(){
     const o={type:kind,points:pts,mul:thickMul(),color:color,alpha:alphaVal()};
     if(kind==='line')o.dash=dashVal();
     if(kind==='road')o.gap=roadGapVal();
+    o.smooth=smoothChk.checked;
     objects.push(o);
   }
   redraw();
@@ -1397,6 +1453,15 @@ dashSel.addEventListener('change',()=>{
   if(selected&&selected.type==='line'){ pushUndo(); selected.dash=dashVal(); redraw(); }
   else if(tool==='line'&&drawing)redraw();
 });
+smoothChk.addEventListener('change',()=>{
+  // 線を選んでいれば、その線の角を丸くする／角ばらせる。
+  // 何も選んでいなければ、次に引く線に使います
+  if(selected&&isPoly(selected.type)){ pushUndo(); selected.smooth=smoothChk.checked; redraw(); }
+  else if(drawing)redraw();
+  setHint(smoothChk.checked
+    ? '曲がり角をなめらかなカーブにします。角を丸めるぶん、曲がり角の少し手前から曲がり始めます。'
+    : '曲がり角を、今までどおり角ばった形にします。');
+});
 roadGapSel.addEventListener('change',()=>{
   // 道を選んでいれば、その道の幅を変える。何も選んでいなければ次に引く道に使う
   if(selected&&selected.type==='road'){ pushUndo(); selected.gap=roadGapVal(); redraw(); }
@@ -1521,6 +1586,7 @@ footRange.addEventListener('input',()=>{
 footFontSel.addEventListener('change',()=>{ updateFootUI(); redraw(); });
 footTextEl.addEventListener('input',()=>{ footText=footTextEl.value; updateFootUI(); redraw(); });
 siteName.addEventListener('input',()=>{ updateMapNote(); redraw(); });
+titleAlignSel.addEventListener('change',()=>{ redraw(); });
 document.getElementById('btnArrange').onclick=()=>{
   const fh=footPx();
   if(fh<=0){alert('先に「下のスペース」の高さを 0 より大きくしてください');return;}
@@ -1607,7 +1673,7 @@ document.getElementById('btnPreviewPrint').onclick=()=>{
 };
 preview.addEventListener('click',e=>{ if(e.target===preview||e.target.id==='previewPaper')closePreview(); });
 document.getElementById('btnSaveProj').onclick=()=>{
-  const data={app:'genba-keiro',version:4,site:siteName.value,
+  const data={app:'genba-keiro',version:4,site:siteName.value,titleAlign:titleAlignSel.value,
     orient:orient,footMM:footMM,footFont:footFontSel.value,footText:footText,
     tray:tray.map(t=>t.src),
     objects:objects.map(o=>{const c={...o};delete c.img;return c;})};
@@ -1627,6 +1693,7 @@ fileProj.onchange=async()=>{
     if(data.app!=='genba-keiro')throw new Error('bad file');
     if(objects.length&&!confirm('現在の内容を破棄して開きますか？'))return;
     siteName.value=data.site||'';
+    titleAlignSel.value=data.titleAlign||'left';   // 古いファイルは今までどおり左寄せ
     orient=data.orient||'landscape'; orientSel.value=orient;
     footFontSel.value=data.footFont||'2.5';
     applyPageSize();
