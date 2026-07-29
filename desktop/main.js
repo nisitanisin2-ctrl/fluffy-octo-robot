@@ -8,8 +8,17 @@
 const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 
-const APP_HTML = path.join(__dirname, '..', 'index.html');
-const APP_ICON = path.join(__dirname, '..', 'icon-512.png');
+/* アプリ本体（index.html）の置き場所。
+   exe に包んだときは resources\app の中に、
+   ふだん（npm start）は、ひとつ上のフォルダにあります */
+const BASE = app.isPackaged ? path.join(process.resourcesPath, 'app')
+                            : path.join(__dirname, '..');
+const APP_HTML = path.join(BASE, 'index.html');
+const APP_ICON = path.join(BASE, 'icon-512.png');
+
+/* 窓が他の窓の後ろに隠れていると、地図の絵を描くのを止めてしまい、
+   切り取ったときに真っ白になることがあります。それを止めない設定です */
+app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
 function createWindow() {
   const win = new BrowserWindow({
@@ -26,6 +35,7 @@ function createWindow() {
       webviewTag: true,        // アプリの中に地図の画面を出すために必要です
       contextIsolation: false, // preload から画面を直接組み立てるため
       nodeIntegration: false,  // 表示している中身に Node は渡しません
+      backgroundThrottling: false, // 隠れていても描き続けます（切り取り対策）
       spellcheck: false
     }
   });

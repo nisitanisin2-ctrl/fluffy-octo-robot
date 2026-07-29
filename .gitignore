@@ -1,4 +1,4 @@
-# Claude Code のローカル設定（このPC専用なので公開しない）
+﻿# Claude Code のローカル設定（このPC専用なので公開しない）
 .claude/
 
 # 作業ファイル・現場の写真や地図
@@ -21,3 +21,7 @@
 # Windows が作る一時ファイル
 Thumbs.db
 desktop.ini
+
+# 出来上がった exe（大きいので GitHub には上げません。作り直しは desktop で npm run dist）
+配布用/
+desktop/dist/

@@ -1,13 +1,46 @@
 {
   "name": "genba-keiro-desktop",
-  "version": "1.0.0",
+  "version": "3.1.0",
   "description": "現場経路作成アプリ（パソコン用）。アプリの中に地図を開いて、範囲を選んでそのまま貼り付けられます。",
   "main": "main.js",
   "private": true,
+  "author": "nisitanisin2-ctrl",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "dist": "electron-builder --win portable"
   },
   "devDependencies": {
-    "electron": "^40.0.0"
+    "electron": "^40.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "jp.genba.keiro",
+    "productName": "現場経路作成アプリ",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      { "from": "../index.html", "to": "app/index.html" },
+      { "from": "../icon-512.png", "to": "app/icon-512.png" },
+      { "from": "../icon-192.png", "to": "app/icon-192.png" },
+      { "from": "../icon-180.png", "to": "app/icon-180.png" },
+      { "from": "../manifest.json", "to": "app/manifest.json" }
+    ],
+    "win": {
+      "target": ["portable"],
+      "icon": "../icons/app.ico",
+      "artifactName": "現場経路作成アプリ.exe"
+    },
+    "portable": {
+      "artifactName": "現場経路作成アプリ.exe",
+      "unpackDirName": "genba-keiro-app"
+    },
+    "compression": "maximum"
   }
 }

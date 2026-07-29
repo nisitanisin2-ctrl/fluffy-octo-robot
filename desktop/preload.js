@@ -213,7 +213,13 @@ function setupMapPanel() {
     setHint('切り取っています…');
     let src;
     try {
-      const img = rect ? await view.capturePage(rect) : await view.capturePage();
+      /* まれに1回目が空になることがある（描き直しの途中など）ので、
+         そのときは少し待ってから、もう一度だけ試します */
+      let img = null;
+      for (let i = 0; i < 3 && (!img || img.isEmpty()); i++) {
+        if (i) await new Promise(r => setTimeout(r, 400));
+        img = rect ? await view.capturePage(rect) : await view.capturePage();
+      }
       if (!img || img.isEmpty()) throw new Error('empty');
       src = img.toDataURL();
     } catch (err) {
