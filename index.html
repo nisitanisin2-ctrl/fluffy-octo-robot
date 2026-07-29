@@ -298,7 +298,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='3.0';
+const APP_VERSION='3.1';
 const APP_DATE='2026-07-29';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -872,55 +872,47 @@ function drawLine(o){
   strokePts(pts,outer,'#ffffff',d);
   strokePts(pts,w,o.color,d);
 }
-/* 折れ線を、真横に d だけずらした線を作ります（d が負なら反対側）。
-   ゆるい曲がり角では、前後の線を伸ばして交点でつなぎます（角がきれいに閉じます）。
-   急な曲がり角で同じことをすると、伸ばした先が遠くへ飛び出して線にトゲが出るので、
-   そこは伸ばさずに角を切り落とします。
-   ほとんど同じ場所にある点は、向きが決められずトゲの元になるので、先に取り除きます */
-function offsetPoly(pts,d){
-  const q=[];
-  for(const p of pts){
-    const last=q[q.length-1];
-    if(!last||Math.hypot(p.x-last.x,p.y-last.y)>0.4)q.push(p);
+/* 道を描くための作業用の紙（画面には出ません）。使い回します */
+let roadBuf=null;
+function roadCtx(){
+  if(!roadBuf)roadBuf=document.createElement('canvas');
+  if(roadBuf.width!==cv.width||roadBuf.height!==cv.height){
+    roadBuf.width=cv.width; roadBuf.height=cv.height;
   }
-  const n=q.length;
-  if(n<2)return pts.slice();
-  const norms=[], out=[];
-  for(let i=0;i<n-1;i++){
-    const dx=q[i+1].x-q[i].x, dy=q[i+1].y-q[i].y;
-    const L=Math.hypot(dx,dy);
-    norms.push({x:-dy/L,y:dx/L});          // 進む向きに対して真横の向き
-  }
-  for(let i=0;i<n;i++){
-    const a=norms[i-1], b=norms[i];
-    if(!a||!b){                            // 端の点は、その線の法線どおりにずらす
-      const s=b||a;
-      out.push({x:q[i].x+s.x*d,y:q[i].y+s.y*d});
-      continue;
-    }
-    const mx=a.x+b.x, my=a.y+b.y;
-    const L=Math.hypot(mx,my);
-    const cos=L/2;                         // ＝角の半分の cos。1に近いほどゆるい角
-    if(cos>0.62){                          // だいたい直角より ゆるい角 → 交点でつなぐ
-      out.push({x:q[i].x+mx/L*d/cos, y:q[i].y+my/L*d/cos});
-    }else{                                 // 急な角・折り返し → 角を切り落とす
-      out.push({x:q[i].x+a.x*d,y:q[i].y+a.y*d});
-      out.push({x:q[i].x+b.x*d,y:q[i].y+b.y*d});
-    }
-  }
-  return out;
+  return roadBuf.getContext('2d');
 }
-/* 道。真ん中を通る折れ線の両側に、同じ形の線を2本描きます（2重線）。
-   白フチを2本ぶん先に描いてから本線を重ねるので、
-   フチが相手の線を消してしまうことはありません */
+/* 道（2重線）。2本の線を別々に描くのではなく、
+   「道1本ぶんの帯」を作ってから、真ん中をくり抜いて2本の線にします。
+     ① 道の外側いっぱいまでを白で描く（白フチのぶんまで）
+     ② 真ん中をくり抜く … 地図が透けて見えるようになります
+     ③ 残った帯の内側を、選んだ色で塗る … これで線が2本になります
+     ④ いちばん内側を白へ戻す … 線の白フチ
+   折り返しなどで道が自分と重なった所は「道の中」になるので、
+   中に入ってしまう線は自然に消え、1本の道としてつながって見えます */
 function drawRoad(o){
   const pts=pathPts(o); if(pts.length<2)return;
-  const w=lineW(o), g=roadGap(o)/2;
-  const a=offsetPoly(pts,g), b=offsetPoly(pts,-g);
-  strokePts(a,halo(w),'#ffffff');
-  strokePts(b,halo(w),'#ffffff');
-  strokePts(a,w,o.color);
-  strokePts(b,w,o.color);
+  const w=lineW(o), g=roadGap(o), hw=(halo(w)-w)/2;   // hw＝白フチの幅（片側）
+  const b=getBBox(o), pad=Math.ceil((g+w)/2+hw+4);
+  const x0=Math.max(0,Math.floor(b.x-pad)), y0=Math.max(0,Math.floor(b.y-pad));
+  const x1=Math.min(cv.width,Math.ceil(b.x+b.w+pad)), y1=Math.min(cv.height,Math.ceil(b.y+b.h+pad));
+  if(x1<=x0||y1<=y0)return;
+  const g2=roadCtx();
+  g2.save();
+  g2.clearRect(x0,y0,x1-x0,y1-y0);
+  g2.lineJoin='round'; g2.lineCap='butt'; g2.setLineDash([]);
+  const band=(width,col,mode)=>{
+    if(!(width>0))return;
+    g2.globalCompositeOperation=mode; g2.strokeStyle=col; g2.lineWidth=width;
+    g2.beginPath(); g2.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++)g2.lineTo(pts[i].x,pts[i].y);
+    g2.stroke();
+  };
+  band(g+w+hw*2,'#ffffff','source-over');       // ①
+  band(g-w-hw*2,'#000000','destination-out');   // ②
+  band(g+w,o.color,'source-atop');              // ③
+  band(g-w,'#ffffff','source-atop');            // ④
+  g2.restore();
+  ctx.drawImage(roadBuf,x0,y0,x1-x0,y1-y0,x0,y0,x1-x0,y1-y0);
 }
 function drawBadge(x,y,r,num,col){
   ctx.beginPath(); ctx.arc(x,y,r,0,7);
