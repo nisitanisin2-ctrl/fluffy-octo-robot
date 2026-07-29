@@ -298,7 +298,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='2.9';
+const APP_VERSION='3.0';
 const APP_DATE='2026-07-29';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -811,6 +811,7 @@ function smoothPts(pts,r){
     const L1=Math.hypot(a.x-p.x,a.y-p.y), L2=Math.hypot(b.x-p.x,b.y-p.y);
     if(L1<0.5||L2<0.5){ out.push({x:p.x,y:p.y}); continue; }
     const t1=Math.min(r,L1*0.5), t2=Math.min(r,L2*0.5);
+    if(t1<1||t2<1){ out.push({x:p.x,y:p.y}); continue; }   // 丸めようがない短さ
     const A={x:p.x+(a.x-p.x)/L1*t1,y:p.y+(a.y-p.y)/L1*t1};
     const B={x:p.x+(b.x-p.x)/L2*t2,y:p.y+(b.y-p.y)/L2*t2};
     out.push(A);
@@ -872,32 +873,40 @@ function drawLine(o){
   strokePts(pts,w,o.color,d);
 }
 /* 折れ線を、真横に d だけずらした線を作ります（d が負なら反対側）。
-   曲がり角では、前後の線の外側の交点に寄せて、2本の線がきれいにつながるようにします。
-   鋭角に折り返したときに角が飛び出しすぎないよう、伸ばす量には上限を付けています */
+   ゆるい曲がり角では、前後の線を伸ばして交点でつなぎます（角がきれいに閉じます）。
+   急な曲がり角で同じことをすると、伸ばした先が遠くへ飛び出して線にトゲが出るので、
+   そこは伸ばさずに角を切り落とします。
+   ほとんど同じ場所にある点は、向きが決められずトゲの元になるので、先に取り除きます */
 function offsetPoly(pts,d){
-  const n=pts.length, norms=[], out=[];
+  const q=[];
+  for(const p of pts){
+    const last=q[q.length-1];
+    if(!last||Math.hypot(p.x-last.x,p.y-last.y)>0.4)q.push(p);
+  }
+  const n=q.length;
+  if(n<2)return pts.slice();
+  const norms=[], out=[];
   for(let i=0;i<n-1;i++){
-    const dx=pts[i+1].x-pts[i].x, dy=pts[i+1].y-pts[i].y;
-    const L=Math.hypot(dx,dy)||1;
+    const dx=q[i+1].x-q[i].x, dy=q[i+1].y-q[i].y;
+    const L=Math.hypot(dx,dy);
     norms.push({x:-dy/L,y:dx/L});          // 進む向きに対して真横の向き
   }
-  if(!norms.length)return pts.slice();
   for(let i=0;i<n;i++){
     const a=norms[i-1], b=norms[i];
     if(!a||!b){                            // 端の点は、その線の法線どおりにずらす
       const s=b||a;
-      out.push({x:pts[i].x+s.x*d,y:pts[i].y+s.y*d});
+      out.push({x:q[i].x+s.x*d,y:q[i].y+s.y*d});
       continue;
     }
-    let mx=a.x+b.x, my=a.y+b.y;
+    const mx=a.x+b.x, my=a.y+b.y;
     const L=Math.hypot(mx,my);
-    if(L<1e-6){                            // 真後ろへ折り返した所は、そのままずらす
-      out.push({x:pts[i].x+a.x*d,y:pts[i].y+a.y*d});
-      continue;
+    const cos=L/2;                         // ＝角の半分の cos。1に近いほどゆるい角
+    if(cos>0.62){                          // だいたい直角より ゆるい角 → 交点でつなぐ
+      out.push({x:q[i].x+mx/L*d/cos, y:q[i].y+my/L*d/cos});
+    }else{                                 // 急な角・折り返し → 角を切り落とす
+      out.push({x:q[i].x+a.x*d,y:q[i].y+a.y*d});
+      out.push({x:q[i].x+b.x*d,y:q[i].y+b.y*d});
     }
-    mx/=L; my/=L;
-    const cos=Math.max(0.25,mx*a.x+my*a.y);
-    out.push({x:pts[i].x+mx*d/cos,y:pts[i].y+my*d/cos});
   }
   return out;
 }
