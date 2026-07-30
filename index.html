@@ -142,6 +142,14 @@ html:not(.desktop) footer{display:none}
       <span class="lbl">仕上げ</span>
       <button id="btnPng">⬇ 画像で保存</button>
       <button id="btnPrint">🖨 印刷</button>
+      <select id="printMargin" title="用紙のふちに空ける余白です。プリンターは紙の端まで印刷できないので、「なし」にすると現場名など端の部分が切れることがあります。選んだ余白は、このパソコンに覚えます">
+        <option value="0">余白 なし</option>
+        <option value="3">余白 3mm</option>
+        <option value="5">余白 5mm</option>
+        <option value="8">余白 8mm</option>
+        <option value="10">余白 10mm</option>
+        <option value="15">余白 15mm</option>
+      </select>
       <button id="btnPreview" title="印刷したときの見た目を、印刷する前に確かめられます">👁 プレビュー</button>
     </div>
     <div class="grp">
@@ -326,7 +334,7 @@ html:not(.desktop) footer{display:none}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='3.6';
+const APP_VERSION='3.7';
 const APP_DATE='2026-07-30';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -357,6 +365,7 @@ const pageStyle=document.createElement('style'); document.head.appendChild(pageS
 
 const DPI=150, MM=DPI/25.4;          // 用紙は A4・150dpi で作る
 let orient='landscape';
+let printMarginMM=5;                  // 印刷するときの、用紙のふちの余白(mm)
 let footMM=45;                        // 下のスペースの高さ(mm)
 let footText='';
 let objects=[];                       // 先頭に地図(type:'map')を置く
@@ -454,8 +463,19 @@ function viewCenter(){
 }
 
 /* ---------- 用紙の作成 ---------- */
+/* 印刷したときの、用紙と絵の大きさを決めます。
+   プリンターは紙の端まで印刷できないので、ふちに余白を空けられるようにしています。
+   余白を空けたぶん用紙が狭くなるので、絵も同じ割合で小さくして、
+   縦横の形はそのまま・1枚に収まるようにします（2枚目にはみ出しません） */
 function updatePageStyle(){
-  pageStyle.textContent='@page{size:A4 '+(orient==='landscape'?'landscape':'portrait')+';margin:0}';
+  const land=orient==='landscape';
+  const pw=land?297:210, ph=land?210:297;        // A4 の実寸(mm)
+  const m=Math.max(0,Math.min(20,printMarginMM));
+  const s=Math.min((pw-m*2)/pw,(ph-m*2)/ph);     // 余白を引いた中に収まる倍率
+  const w=(pw*s).toFixed(2), h=(ph*s).toFixed(2);
+  pageStyle.textContent=
+    '@page{size:A4 '+(land?'landscape':'portrait')+';margin:'+m+'mm}'
+    +'@media print{#cv{width:'+w+'mm!important;height:'+h+'mm!important;margin:0 auto!important}}';
 }
 function applyPageSize(){
   cv.width=Math.round(pageWmm()*MM);
@@ -1681,6 +1701,8 @@ document.getElementById('btnPrint').onclick=()=>{
   renderClean();
   window.print();
   setTimeout(redraw,300);
+  setHint('印刷の画面では、「余白」は「既定」のままにしてください（アプリ側の「余白 '
+    +(printMarginMM>0?printMarginMM+'mm':'なし')+'」が使われます）。端が切れるときは、この余白を大きくしてください。');
 };
 /* ---------- 印刷プレビュー ---------- */
 /* 印刷と同じ描き方（renderClean）で用紙を1枚の絵にして、画面いっぱいに映します */
@@ -1940,6 +1962,25 @@ fitToolbar();
   el.title='現場経路作成アプリ バージョン '+APP_VERSION+'\n更新日 '+APP_DATE
           +'\n'+(installed?'このパソコンにインストール済みの状態で動いています':'ブラウザで開いています');
 })();
+
+/* ===== 印刷の余白 =====
+   選んだ余白は、このパソコン（このブラウザ）に覚えておき、次に開いたときも同じにします */
+const PRINT_MARGIN_KEY='genba.printMargin';
+const printMarginSel=document.getElementById('printMargin');
+(function(){
+  let saved=null;
+  try{ saved=localStorage.getItem(PRINT_MARGIN_KEY); }catch(e){}
+  if(saved!==null&&printMarginSel.querySelector('option[value="'+saved+'"]')) printMarginMM=parseFloat(saved);
+  printMarginSel.value=String(printMarginMM);
+})();
+printMarginSel.addEventListener('change',()=>{
+  printMarginMM=parseFloat(printMarginSel.value)||0;
+  try{ localStorage.setItem(PRINT_MARGIN_KEY,String(printMarginMM)); }catch(e){}
+  updatePageStyle();
+  setHint(printMarginMM>0
+    ? '印刷の余白を '+printMarginMM+'mm にしました（次からも、この余白で印刷します）。用紙の端が切れるときは、余白を大きくしてください。'
+    : '印刷の余白を「なし」にしました（次からも、この余白で印刷します）。プリンターによっては、用紙の端（現場名など）が切れることがあります。');
+});
 
 applyPageSize();
 setTool('select');
