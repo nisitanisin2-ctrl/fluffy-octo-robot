@@ -35,7 +35,16 @@ body{display:flex;flex-direction:column;font-family:"Segoe UI","Meiryo",system-u
 .bar.slidable{cursor:grab}
 .bar.dragging{cursor:grabbing;user-select:none}
 .grp{flex:none;display:flex;align-items:center;gap:2px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:3px 4px}
-.grp>.lbl{font-size:10px;color:#78808d;white-space:nowrap;margin-right:2px}
+/* まとまりの名前（「道具」「色」など）は、つまんで動かすための取っ手を兼ねています。
+   touch-action:none … 指でつまんだときに、段が横にすべってしまわないようにします */
+.grp>.lbl{font-size:10px;color:#78808d;white-space:nowrap;margin-right:1px;
+  align-self:stretch;display:flex;align-items:center;padding:0 2px;border-radius:6px;
+  cursor:grab;touch-action:none;user-select:none}
+.grp>.lbl:hover{background:#dfe6f0;color:#2b3a4d}
+/* つまんで動かしている間。動かしているまとまりを青くして、今の置き場所を見せます */
+.grp.moving{background:#eaf2fe;border-color:#1a73e8;box-shadow:0 0 0 2px rgba(26,115,232,.45)}
+.grp.moving>.lbl{cursor:grabbing;color:#14488f}
+body.barMoving{cursor:grabbing;user-select:none}
 button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
 button:hover{background:#e9edf2}
 button:disabled{opacity:.45;cursor:default;background:#fff}
@@ -119,7 +128,7 @@ html:not(.desktop) footer{display:none}
 <body>
 <div id="toolbar">
   <div class="bar">
-    <div class="grp">
+    <div class="grp" data-g="site">
       <span class="lbl">現場名</span>
       <input id="siteName" placeholder="用紙の上に印刷されます">
       <select id="titleAlign" title="現場名を、用紙の上のどこに印刷するかを選びます">
@@ -128,17 +137,17 @@ html:not(.desktop) footer{display:none}
         <option value="right">右寄せ</option>
       </select>
     </div>
-    <div class="grp">
+    <div class="grp" data-g="map">
       <span class="lbl">地図</span>
       <button id="btnPasteMap" class="primary" title="切り取った地図を、キーボードを使わずに用紙へ貼り付けます（Ctrl+V と同じ働きです）">📋 地図を貼り付ける</button>
     </div>
-    <div class="grp">
+    <div class="grp" data-g="file">
       <span class="lbl">ファイル</span>
       <button id="btnMap" class="primary">🗺 地図を読み込む</button>
       <button id="btnOpen">📂 開く</button>
       <button id="btnSaveProj">💾 保存</button>
     </div>
-    <div class="grp">
+    <div class="grp" data-g="finish">
       <span class="lbl">仕上げ</span>
       <button id="btnPng">⬇ 画像で保存</button>
       <button id="btnPrint">🖨 印刷</button>
@@ -152,71 +161,17 @@ html:not(.desktop) footer{display:none}
       </select>
       <button id="btnPreview" title="印刷したときの見た目を、印刷する前に確かめられます">👁 プレビュー</button>
     </div>
-    <div class="grp">
-      <span class="lbl">画面の表示</span>
-      <button id="btnZoomOut" title="縮小">−</button>
-      <button id="btnZoomIn" title="拡大">＋</button>
-      <button id="btnFit">全体</button>
-    </div>
-    <span id="ver"></span>
-  </div>
-  <div class="bar">
-    <div class="grp">
-      <span class="lbl">線の角</span>
-      <label class="chk" title="チェックを入れると、矢印・罫線・道の曲がり角が、角ばらずになめらかなカーブになります。線を選んでから切り替えると、その線だけ変えられます">
-        <input type="checkbox" id="smoothChk" checked>⌒ カーブを丸くする
-      </label>
-    </div>
-    <div class="grp">
-      <span class="lbl">編集</span>
-      <button id="btnUndo" title="元に戻す（Ctrl+Z）">↩ 戻す</button>
-      <button id="btnRedo" title="やり直す（Ctrl+Y）">↪ 進む</button>
-      <button id="btnDel" title="選んだものを削除（Delete）">🗑 削除</button>
-      <button id="btnClear">全消去</button>
-    </div>
-    <div class="grp">
-      <span class="lbl">道具</span>
-      <button class="tool active" data-tool="select">🖱 選択</button>
-      <button class="tool" data-tool="arrow">➜ 矢印</button>
-      <button class="tool" data-tool="line" title="矢印の付かない線を引きます（区域の境目・う回路・敷地の区切りなど）">─ 罫線</button>
-      <select id="dashSel" title="罫線の種類を選びます（実線・破線・点線・鎖線）">
-        <option value="solid" selected>実線</option>
-        <option value="dash">破線</option>
-        <option value="longdash">長い破線</option>
-        <option value="dot">点線</option>
-        <option value="dashdot">一点鎖線</option>
-        <option value="dashdotdot">二点鎖線</option>
-      </select>
-      <button class="tool" data-tool="road" title="道を2本の線（2重線）で描きます。線の太さは左の「太さ」、線と線の間は右の「道幅」で選べます">🛣 道</button>
-      <select id="roadGapSel" title="道の2本の線の間（道幅）を選びます">
-        <option value="1.2">道幅 とても狭い</option>
-        <option value="1.8">道幅 狭い</option>
-        <option value="2.6" selected>道幅 標準</option>
-        <option value="3.6">道幅 広い</option>
-        <option value="5">道幅 とても広い</option>
-        <option value="7">道幅 最大</option>
-      </select>
+    <div class="grp" data-g="pins">
+      <span class="lbl">目印</span>
       <button class="tool" data-tool="pin">📍 番号</button>
       <button class="tool" data-tool="guard">👮 警備員</button>
       <button class="tool" data-tool="wash" title="生コン車（ミキサー車）の洗い場の位置を示すピンを置きます">🚿 洗い場</button>
       <button class="tool" data-tool="genba" title="工事現場の位置を示すピンを置きます">🏗 現場</button>
-      <button class="tool" data-tool="ellipse">◯ 丸</button>
-      <button class="tool" data-tool="rect">□ 四角</button>
-      <select id="rectTail" title="四角に、指したい場所を示す細いでっぱり（吹き出し）を付けます">
-        <option value="none" selected>枠だけ</option>
-        <option value="tail">吹き出し</option>
-      </select>
-      <button class="tool" data-tool="text">✎ 文字</button>
     </div>
-    <div class="grp">
-      <span class="lbl">色</span>
-      <button class="swatch active" data-color="#e60012" style="background:#e60012" title="赤"></button>
-      <button class="swatch" data-color="#0068b7" style="background:#0068b7" title="青"></button>
-      <button class="swatch" data-color="#00a040" style="background:#00a040" title="緑"></button>
-      <button class="swatch" data-color="#f39800" style="background:#f39800" title="オレンジ"></button>
-      <button class="swatch" data-color="#111111" style="background:#111111" title="黒"></button>
-    </div>
-    <div class="grp">
+    <span id="ver"></span>
+  </div>
+  <div class="bar">
+    <div class="grp" data-g="style">
       <span class="lbl">太さ</span>
       <select id="thick" title="矢印・罫線・丸・四角の線の太さ（ピンと文字の大きさは変わりません）">
         <option value="0.12">極細</option>
@@ -238,6 +193,72 @@ html:not(.desktop) footer{display:none}
         <option value="0.4">40%</option>
         <option value="0.25">25%</option>
       </select>
+    </div>
+    <div class="grp" data-g="color">
+      <span class="lbl">色</span>
+      <button class="swatch active" data-color="#e60012" style="background:#e60012" title="赤"></button>
+      <button class="swatch" data-color="#0068b7" style="background:#0068b7" title="青"></button>
+      <button class="swatch" data-color="#00a040" style="background:#00a040" title="緑"></button>
+      <button class="swatch" data-color="#f39800" style="background:#f39800" title="オレンジ"></button>
+      <button class="swatch" data-color="#111111" style="background:#111111" title="黒"></button>
+    </div>
+    <div class="grp" data-g="tool">
+      <span class="lbl">道具</span>
+      <button class="tool active" data-tool="select">🖱 選択</button>
+      <button class="tool" data-tool="arrow">➜ 矢印</button>
+      <select id="arrowHeadSel" title="矢印の先（矢じり）の大きさを選びます。矢印を選んでから変えると、その矢印だけ変えられます">
+        <option value="0.6">先 とても小</option>
+        <option value="0.8">先 小</option>
+        <option value="1" selected>先 標準</option>
+        <option value="1.3">先 大</option>
+        <option value="1.7">先 とても大</option>
+        <option value="2.2">先 最大</option>
+      </select>
+      <button class="tool" data-tool="line" title="矢印の付かない線を引きます（区域の境目・う回路・敷地の区切りなど）">─ 罫線</button>
+      <select id="dashSel" title="罫線の種類を選びます（実線・破線・点線・鎖線）">
+        <option value="solid" selected>実線</option>
+        <option value="dash">破線</option>
+        <option value="longdash">長い破線</option>
+        <option value="dot">点線</option>
+        <option value="dashdot">一点鎖線</option>
+        <option value="dashdotdot">二点鎖線</option>
+      </select>
+      <button class="tool" data-tool="road" title="道を2本の線（2重線）で描きます。線の太さは左の「太さ」、線と線の間は右の「道幅」で選べます">🛣 道</button>
+      <select id="roadGapSel" title="道の2本の線の間（道幅）を選びます">
+        <option value="1.2">道幅 とても狭い</option>
+        <option value="1.8">道幅 狭い</option>
+        <option value="2.6" selected>道幅 標準</option>
+        <option value="3.6">道幅 広い</option>
+        <option value="5">道幅 とても広い</option>
+        <option value="7">道幅 最大</option>
+      </select>
+      <button class="tool" data-tool="ellipse">◯ 丸</button>
+      <button class="tool" data-tool="rect">□ 四角</button>
+      <select id="rectTail" title="四角に、指したい場所を示す細いでっぱり（吹き出し）を付けます">
+        <option value="none" selected>枠だけ</option>
+        <option value="tail">吹き出し</option>
+      </select>
+      <button class="tool" data-tool="text">✎ 文字</button>
+    </div>
+    <div class="grp" data-g="edit">
+      <span class="lbl">編集</span>
+      <button id="btnUndo" title="元に戻す（Ctrl+Z）">↩ 戻す</button>
+      <button id="btnRedo" title="やり直す（Ctrl+Y）">↪ 進む</button>
+      <button id="btnDel" title="選んだものを削除（Delete）">🗑 削除</button>
+      <button id="btnClear">全消去</button>
+    </div>
+    <div class="grp" data-g="view">
+      <span class="lbl">画面の表示</span>
+      <button id="btnZoomOut" title="縮小">−</button>
+      <button id="btnZoomIn" title="拡大">＋</button>
+      <button id="btnFit">全体</button>
+      <button id="btnResetBar" title="ツールバーの並び（各まとまりの場所）を、はじめの並びに戻します">↺ 並びを戻す</button>
+    </div>
+    <div class="grp" data-g="smooth">
+      <span class="lbl">線の角丸</span>
+      <label class="chk" title="チェックを入れると、矢印・罫線・道の曲がり角が、角ばらずになめらかなカーブになります。線を選んでから切り替えると、その線だけ変えられます">
+        <input type="checkbox" id="smoothChk" checked>
+      </label>
     </div>
   </div>
 </div>
@@ -334,8 +355,8 @@ html:not(.desktop) footer{display:none}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='3.7';
-const APP_DATE='2026-07-30';
+const APP_VERSION='3.8';
+const APP_DATE='2026-07-31';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const stage=document.getElementById('stage');
@@ -345,6 +366,7 @@ const thickSel=document.getElementById('thick');
 const alphaSel=document.getElementById('alpha');
 const dashSel=document.getElementById('dashSel');
 const roadGapSel=document.getElementById('roadGapSel');
+const arrowHeadSel=document.getElementById('arrowHeadSel');
 const smoothChk=document.getElementById('smoothChk');
 const titleAlignSel=document.getElementById('titleAlign');
 const rectTailSel=document.getElementById('rectTail');
@@ -383,9 +405,9 @@ let showPlaceholder=true;             // 用紙の中央に出す「ここに地
 
 const HINTS={
  select:'書き込みをクリックで選択、ドラッグで移動。右下の□で大きさ変更。矢印は角の□で形を直せます。下スペースの境目は、中央のつまみを上下にドラッグしても変えられます。',
- arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。曲がり角は、はじめからなめらかなカーブになります（「⌒ カーブを丸くする」のチェックを外すと角ばります）。Escで中止。',
+ arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。線の太さは「太さ」、矢印の先（矢じり）の大きさは、すぐ右の「先」で選べます。曲がり角は、はじめからなめらかなカーブになります（「線の角丸」のチェックを外すと角ばります）。Escで中止。',
  line:'クリックで点を追加 → ダブルクリック（または右クリック／Enter）で線を確定。矢印の付かない線です。左の「線の種類」で実線・破線・点線などを選べます。Escで中止。',
- road:'道の真ん中をクリックしていくと、2本の線（2重線）で道を描きます → ダブルクリック（または右クリック／Enter）で確定。線の太さは「太さ」、線と線の間は「道幅」で選べます。曲がり角は、はじめからなめらかなカーブになります（「⌒ カーブを丸くする」のチェックを外すと角ばります）。Escで中止。',
+ road:'道の真ん中をクリックしていくと、2本の線（2重線）で道を描きます → ダブルクリック（または右クリック／Enter）で確定。線の太さは「太さ」、線と線の間は「道幅」で選べます。曲がり角は、はじめからなめらかなカーブになります（「線の角丸」のチェックを外すと角ばります）。Escで中止。',
  pin:'クリックした場所に番号ピン（1・2・3…）を置きます。',
  guard:'クリックした場所にガードマン（警備員）のピンを置きます。ダブルクリックで文字を変更できます。',
  wash:'クリックした場所にミキサー車（生コン車）の洗い場のピンを置きます。ダブルクリックで文字を変更できます。',
@@ -417,6 +439,10 @@ function alphaVal(){ return parseFloat(alphaSel.value); }
 function dashVal(){ return dashSel.value; }
 function rectTailOn(){ return rectTailSel.value==='tail'; }
 function roadGapVal(){ return parseFloat(roadGapSel.value); }
+/* 矢印の先（矢じり）の大きさ。1 が標準です。
+   古いファイルには入っていないので、無いときは 1 として扱います */
+function arrowHeadVal(){ return parseFloat(arrowHeadSel.value)||1; }
+function headMul(o){ return o.head==null?1:o.head; }
 /* 「太さ」を使うのは線だけ。ピンと文字はいつも標準の大きさで置きます
    （置いたあと、右下の□をドラッグすれば個別に大きさを変えられます） */
 function usesThickness(t){ return t==='arrow'||t==='line'||t==='road'||t==='ellipse'||t==='rect'; }
@@ -673,7 +699,7 @@ function redraw(){
   if(drawing){
     const pts=drawing.points.concat(cursorPos?[cursorPos]:[]);
     const prev={type:drawing.type,points:pts,mul:thickMul(),color:color,
-                dash:dashVal(),gap:roadGapVal(),smooth:smoothChk.checked};
+                dash:dashVal(),gap:roadGapVal(),head:arrowHeadVal(),smooth:smoothChk.checked};
     ctx.save(); ctx.globalAlpha=0.75*alphaVal();
     if(pts.length>=2)(drawing.type==='road'?drawRoad:drawing.type==='line'?drawLine:drawArrow)(prev);
     else if(pts.length===1){ ctx.fillStyle=color; ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,base*0.7,0,7); ctx.fill(); }
@@ -902,7 +928,7 @@ function drawArrow(o){
   const w=lineW(o), outer=halo(w);
   const tip=pts[pts.length-1], prev=pts[pts.length-2];
   const ang=Math.atan2(tip.y-prev.y,tip.x-prev.x);
-  const head=Math.max(w*3,base*0.9);
+  const head=Math.max(w*3,base*0.9)*headMul(o);
   const segLen=Math.hypot(tip.x-prev.x,tip.y-prev.y);
   const cut=Math.min(head*0.75,segLen*0.9);
   const shaft=pts.slice(0,-1).concat([{x:tip.x-Math.cos(ang)*cut,y:tip.y-Math.sin(ang)*cut}]);
@@ -1308,6 +1334,7 @@ function syncStyleUI(){
   alphaSel.value=nearestOpt(alphaSel,selected.alpha==null?1:selected.alpha);
   if(selected.type==='line'&&selected.dash)dashSel.value=selected.dash;
   if(selected.type==='road'&&selected.gap!=null)roadGapSel.value=nearestOpt(roadGapSel,selected.gap);
+  if(selected.type==='arrow')arrowHeadSel.value=nearestOpt(arrowHeadSel,headMul(selected));
   if(isPoly(selected.type))smoothChk.checked=!!selected.smooth;
   if(selected.type==='rect')rectTailSel.value=selected.tail?'tail':'none';
   if(selected.type==='photo'&&selected.mode)photoModeSel.value=selected.mode;
@@ -1321,6 +1348,7 @@ function finalizeArrow(){
     const o={type:kind,points:pts,mul:thickMul(),color:color,alpha:alphaVal()};
     if(kind==='line')o.dash=dashVal();
     if(kind==='road')o.gap=roadGapVal();
+    if(kind==='arrow')o.head=arrowHeadVal();
     o.smooth=smoothChk.checked;
     objects.push(o);
   }
@@ -1510,6 +1538,11 @@ smoothChk.addEventListener('change',()=>{
   setHint(smoothChk.checked
     ? '曲がり角をなめらかなカーブにします。角を丸めるぶん、曲がり角の少し手前から曲がり始めます。'
     : '曲がり角を、今までどおり角ばった形にします。');
+});
+arrowHeadSel.addEventListener('change',()=>{
+  // 矢印を選んでいれば、その矢印の先を変える。何も選んでいなければ次に引く矢印に使う
+  if(selected&&selected.type==='arrow'){ pushUndo(); selected.head=arrowHeadVal(); redraw(); }
+  else if(tool==='arrow'&&drawing)redraw();
 });
 roadGapSel.addEventListener('change',()=>{
   // 道を選んでいれば、その道の幅を変える。何も選んでいなければ次に引く道に使う
@@ -1924,6 +1957,7 @@ function makeBarSlidable(el){
     moved=false;
     if(e.pointerType!=='mouse'||e.button!==0) return;
     if(e.target.closest('input,select,textarea')) return;
+    if(e.target.closest('.grp>.lbl')) return;      // 名前をつまんだときは、まとまりの引っ越しです
     if(el.scrollWidth<=el.clientWidth) return;
     start={x:e.clientX,left:el.scrollLeft};
   });
@@ -1952,6 +1986,128 @@ window.makeBarSlidable=makeBarSlidable;           // パソコン用アプリの
 
 barEls.forEach(makeBarSlidable);
 window.addEventListener('resize',fitToolbar);
+
+/* ===== ツールバーの並べかえ =====
+   「現場名」「道具」「色」…といった、まとまりごとの小さな名前（⠿の付いた所）を
+   マウスでつまむと、そのまとまりを好きな場所へ引っ越しできます。
+   上の段・下の段のどちらへでも移せます。並べた形はこのパソコンに覚えて、
+   次に開いたときも同じ並びで出します。「↺ 並びを戻す」ではじめの並びに戻ります。 */
+const BAR_LAYOUT_KEY='genba.toolbarLayout';
+const verEl=document.getElementById('ver');
+/* はじめの並び。data-g の名前を、上の段・下の段の順に控えておきます */
+const defaultLayout=barEls.map(b=>Array.from(b.querySelectorAll(':scope>.grp')).map(g=>g.dataset.g));
+
+/* まとまりの名前が「取っ手」だと分かるように、説明を付けます */
+for(const lbl of toolbarEl.querySelectorAll('.grp>.lbl')){
+  lbl.title='「'+lbl.textContent.trim()+'」のまとまりです。ここをマウスでつまむと、'
+           +'上の段・下の段の好きな場所へ動かせます（並びは、このパソコンに覚えます）';
+}
+
+function allGroups(){
+  const m={};
+  for(const b of barEls) for(const g of b.querySelectorAll(':scope>.grp')) m[g.dataset.g]=g;
+  return m;
+}
+function tidyBars(){
+  /* バージョン表示は、いつも上の段のいちばん右に置きます */
+  if(verEl&&verEl.nextElementSibling!==null) barEls[0].appendChild(verEl);
+}
+function saveLayout(){
+  const cur=barEls.map(b=>Array.from(b.querySelectorAll(':scope>.grp')).map(g=>g.dataset.g));
+  try{ localStorage.setItem(BAR_LAYOUT_KEY,JSON.stringify(cur)); }catch(e){}
+}
+function applyLayout(layout){
+  const map=allGroups(),used={};
+  layout.forEach((names,i)=>{
+    const bar=barEls[i];
+    if(!bar) return;
+    for(const n of names){
+      const g=map[n];
+      if(!g||used[n]) continue;
+      used[n]=1;
+      bar.appendChild(g);
+    }
+  });
+  /* 覚えた並びに入っていないまとまり（アプリを新しくして増えた分）は、
+     もとの段のうしろに付け足します。こうすると、新しい道具が消えません */
+  defaultLayout.forEach((names,i)=>{
+    for(const n of names){
+      const g=map[n];
+      if(g&&!used[n]){ used[n]=1; barEls[i].appendChild(g); }
+    }
+  });
+  tidyBars();
+}
+(function restoreLayout(){
+  let saved=null;
+  try{ saved=JSON.parse(localStorage.getItem(BAR_LAYOUT_KEY)||'null'); }catch(e){}
+  if(Array.isArray(saved)&&saved.length) applyLayout(saved);
+})();
+
+/* つまんで動かしている間は、指（マウス）の場所を見て、その場でならべ替えます */
+let movingGrp=null;
+function barUnder(y){
+  let best=null,bestD=Infinity;
+  for(const b of barEls){
+    const r=b.getBoundingClientRect();
+    const d=y<r.top?r.top-y:(y>r.bottom?y-r.bottom:0);
+    if(d<bestD){ bestD=d; best=b; }
+  }
+  return best;                                     // 段から少し外れていても、近いほうの段に入れます
+}
+function placeInto(bar,x){
+  const others=Array.from(bar.querySelectorAll(':scope>.grp')).filter(g=>g!==movingGrp);
+  let before=null;
+  for(const g of others){
+    const r=g.getBoundingClientRect();
+    if(x<r.left+r.width/2){ before=g; break; }
+  }
+  if(before) bar.insertBefore(movingGrp,before);
+  else bar.appendChild(movingGrp);
+  tidyBars();
+}
+function edgeScroll(bar,x){
+  /* 段が横にすべる状態のときは、はしに寄せると自動でスクロールします */
+  const r=bar.getBoundingClientRect();
+  if(bar.scrollWidth<=bar.clientWidth+1) return;
+  if(x<r.left+38) bar.scrollLeft-=14;
+  else if(x>r.right-38) bar.scrollLeft+=14;
+}
+toolbarEl.addEventListener('pointerdown',e=>{
+  const lbl=e.target.closest('.grp>.lbl');
+  if(!lbl) return;
+  if(e.pointerType==='mouse'&&e.button!==0) return;
+  movingGrp=lbl.parentElement;
+  movingGrp.classList.add('moving');
+  document.body.classList.add('barMoving');
+  try{ lbl.setPointerCapture(e.pointerId); }catch(err){}
+  e.preventDefault();
+});
+toolbarEl.addEventListener('pointermove',e=>{
+  if(!movingGrp) return;
+  const bar=barUnder(e.clientY);
+  if(bar){ edgeScroll(bar,e.clientX); placeInto(bar,e.clientX); }
+  e.preventDefault();
+});
+function endGrpDrag(){
+  if(!movingGrp) return;
+  movingGrp.classList.remove('moving');
+  document.body.classList.remove('barMoving');
+  movingGrp=null;
+  saveLayout();
+  fitToolbar();                                    // 並びが変わると幅も変わるので、測り直します
+  setHint('ツールバーの並びを変えました。「↺ 並びを戻す」で、はじめの並びに戻せます。');
+}
+window.addEventListener('pointerup',endGrpDrag);
+window.addEventListener('pointercancel',endGrpDrag);
+
+document.getElementById('btnResetBar').addEventListener('click',()=>{
+  applyLayout(defaultLayout);
+  try{ localStorage.removeItem(BAR_LAYOUT_KEY); }catch(e){}
+  fitToolbar();
+  setHint('ツールバーの並びを、はじめの並びに戻しました。');
+});
+
 fitToolbar();
 
 /* 画面のいちばん上、右のはしに出すバージョン表示 */
