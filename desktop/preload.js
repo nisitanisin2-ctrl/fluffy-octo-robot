@@ -362,8 +362,11 @@ function setupMapPanel() {
 
 /* 文字を入れてもらう小さな窓。
    パソコン用アプリ（Electron）では prompt が使えないので、自分で作っています。
-   OK を押すか Enter で入れた文字を、キャンセル・Esc・×印の外側を押すと空を返します */
-function askText(message, initial) {
+   OK を押すか Enter で入れた文字を、キャンセル・Esc・窓の外側を押すと空を返します。
+   nullOnCancel を true にすると、キャンセルのときだけ null を返します
+   （prompt と同じ返し方。アプリ本体の「文字を入れる」がこれを使います） */
+function askText(message, initial, nullOnCancel) {
+  const cancelled = nullOnCancel ? null : '';
   return new Promise(resolve => {
     const back = document.createElement('div');
     back.className = 'mpAskBack';
@@ -390,14 +393,21 @@ function askText(message, initial) {
       resolve(value);
     }
     back.querySelector('.mpAskOk').onclick = () => finish(input.value.trim());
-    back.querySelector('.mpAskCancel').onclick = () => finish('');
-    back.addEventListener('pointerdown', e => { if (e.target === back) finish(''); });
+    back.querySelector('.mpAskCancel').onclick = () => finish(cancelled);
+    back.addEventListener('pointerdown', e => { if (e.target === back) finish(cancelled); });
     back.addEventListener('keydown', e => {
       if (e.key === 'Enter') { e.preventDefault(); finish(input.value.trim()); }
-      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(''); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(cancelled); }
     });
   });
 }
+
+/* アプリ本体（index.html）の「✎ 文字」やピンの文字変更から呼ばれます。
+   ブラウザでは prompt が使えるので、これが無いときは本体が prompt を使います。
+   キャンセルのときは prompt と同じく null を返します */
+window.appAskText = function (message, initial) {
+  return askText(message, initial == null ? '' : String(initial), true);
+};
 
 /* どうするか選んでもらう小さな窓。押したボタンの value を返します
    （Esc・外側クリックは、いちばん最後のボタンの value を返します＝ふつうは「やめる」） */

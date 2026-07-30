@@ -355,7 +355,7 @@ html:not(.desktop) footer{display:none}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='3.8';
+const APP_VERSION='3.9';
 const APP_DATE='2026-07-31';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -469,6 +469,18 @@ function guardR(o){ return base*2.1*o.mul; }   // 警備員・洗い場・現場
 const PIN_LABEL={guard:'警備員',wash:'洗い場',genba:'現場'};
 function textSize(o){ return Math.max(7,base*3.2*o.mul); }
 function setHint(msg){ hintEl.textContent=(msg!==undefined)?msg:(HINTS[tool]||''); }
+
+/* ===== 文字を入れてもらう小窓 =====
+   ブラウザでは、これまでどおり prompt を使います。
+   パソコン用アプリ（Electron）は prompt が使えないので、preload.js が用意した
+   小窓（window.appAskText）を使います。どちらも、キャンセルのときは null を返します。
+   小窓が閉じるのを待つ必要があるので、答えは Promise で返します */
+function askText(message,initial){
+  if(typeof window.appAskText==='function')return window.appAskText(message,initial);
+  let t=null;
+  try{ t=window.prompt(message,initial); }catch(err){ t=null; }
+  return Promise.resolve(t);
+}
 function scaleNow(){ return fitScale*userZoom; }
 function loadImage(src){ return new Promise((res,rej)=>{ const im=new Image(); im.onload=()=>res(im); im.onerror=rej; im.src=src; }); }
 function fileToDataURL(f){ return new Promise((res,rej)=>{ const r=new FileReader(); r.onload=()=>res(r.result); r.onerror=rej; r.readAsDataURL(f); }); }
@@ -1465,27 +1477,35 @@ cv.addEventListener('click',e=>{
       mul:1,color:color,alpha:alphaVal()});
     redraw();
   }else if(tool==='text'){
-    const t=prompt('表示する文字を入力してください','この先 入口');
-    if(t){
-      pushUndo();
-      objects.push({type:'text',x:p.x,y:p.y,text:t,mul:1,color:color,alpha:alphaVal()});
-      redraw();
-    }
+    askText('表示する文字を入力してください','この先 入口').then(t=>{
+      if(t){
+        pushUndo();
+        objects.push({type:'text',x:p.x,y:p.y,text:t,mul:1,color:color,alpha:alphaVal()});
+        redraw();
+      }
+    });
   }
 });
 cv.addEventListener('dblclick',e=>{
   e.preventDefault();
   if(isPoly(tool)){finalizeArrow();return;}
   if(tool==='select'&&selected){
-    if(selected.type==='text'){
-      const t=prompt('文字を変更',selected.text);
-      if(t!==null&&t!==''){pushUndo();selected.text=t;redraw();}
-    }else if(selected.type==='guard'||selected.type==='wash'||selected.type==='genba'){
-      const t=prompt('ピンの文字を変更（空欄にすると文字なし）',selected.label);
-      if(t!==null){pushUndo();selected.label=t;redraw();}
-    }else if(selected.type==='pin'||selected.type==='photo'){
-      const n=parseInt(prompt('番号を変更',selected.num),10);
-      if(!isNaN(n)){pushUndo();selected.num=n;redraw();}
+    /* 小窓が閉じるまでの間に、別のものを選び直されるかもしれないので、
+       開いたときの相手（o）を覚えておいて、そこへ書き戻します */
+    const o=selected;
+    if(o.type==='text'){
+      askText('文字を変更',o.text).then(t=>{
+        if(t!==null&&t!==''){pushUndo();o.text=t;redraw();}
+      });
+    }else if(o.type==='guard'||o.type==='wash'||o.type==='genba'){
+      askText('ピンの文字を変更（空欄にすると文字なし）',o.label).then(t=>{
+        if(t!==null){pushUndo();o.label=t;redraw();}
+      });
+    }else if(o.type==='pin'||o.type==='photo'){
+      askText('番号を変更',String(o.num)).then(t=>{
+        const n=parseInt(t,10);
+        if(!isNaN(n)){pushUndo();o.num=n;redraw();}
+      });
     }
   }
 });
