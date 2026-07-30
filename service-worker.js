@@ -2,7 +2,13 @@
    アプリ本体を書き換えたら、index.html の APP_VERSION と、下の CACHE 名を
    そろえて新しくしてください。
    （新しい名前にすると、古いキャッシュが捨てられて確実に更新されます） */
-const CACHE = 'genba-route-v3.5';
+const CACHE = 'genba-route-v3.6';
+
+/* 自分のキャッシュだけに付ける目印。
+   保存場所（caches）は、同じサイトに置いた他のアプリ（表電卓・写真メモなど）と
+   共通なので、掃除するときは、この目印が付いたものだけにします。
+   （目印を見ずに消すと、よそのアプリのオフライン用データまで消してしまいます） */
+const CACHE_PREFIX = 'genba-route-';
 
 const ASSETS = [
   './',
@@ -26,7 +32,9 @@ self.addEventListener('install', e => {
 self.addEventListener('activate', e => {
   e.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys
+        .filter(k => k.startsWith(CACHE_PREFIX) && k !== CACHE)   // 自分の古いものだけ捨てます
+        .map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
