@@ -12,6 +12,13 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="現場経路">
+<script>
+/* パソコン用アプリ（exe）の中で動いているときだけ、html に desktop の印を付けます。
+   ブラウザ版（web版）とで、出す・出さないを分けるのに使います。
+   名札（genba-keiro-desktop）は、パソコン用アプリの main.js が付けています。
+   画面が出るより先に決めたいので、ここで実行しています */
+if(/genba-keiro-desktop/i.test(navigator.userAgent))document.documentElement.className='desktop';
+</script>
 <style>
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
@@ -50,7 +57,15 @@ select,textarea,input[type=range]{font:inherit;padding:5px;border:1px solid #bbb
 input[type=range]{padding:0}
 /* 道具の説明。画面の一番下（フッターのすぐ上）に小さく出します */
 #hint{flex:none;background:#fffbe6;border-top:1px solid #e8dfa8;color:#6b6000;padding:3px 12px;min-height:19px;font-size:11.5px;line-height:1.45}
-#main{flex:1;display:flex;min-height:0}
+#main{flex:1;display:flex;min-height:0;position:relative}
+/* 右の欄（用紙と地図・差し込み用写真）を、しまう・出すつまみ。web版だけに出します */
+#sideToggle{position:absolute;top:50%;right:262px;transform:translateY(-50%);z-index:6;
+  width:23px;height:74px;padding:0;border:1px solid #ccc;border-right:0;border-radius:9px 0 0 9px;
+  background:#fff;color:#39465a;font-size:15px;box-shadow:-2px 0 9px rgba(0,0,0,.2)}
+#sideToggle:hover{background:#eaf2fe}
+html.desktop #sideToggle{display:none}
+body.sideHidden #side{display:none}
+body.sideHidden #sideToggle{right:0}
 #stage{flex:1;overflow:auto;position:relative;display:flex;align-items:flex-start;justify-content:center}
 #cv{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.45);margin:12px}
 
@@ -82,6 +97,8 @@ input[type=range]{padding:0}
 #btnArrange{margin:0 10px 10px}
 footer{flex:none;background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;justify-content:space-between}
 footer .note2{min-width:0}
+/* 下の注意書きは、web版では出しません（画面をひろく使うため） */
+html:not(.desktop) footer{display:none}
 /* バージョン表示。画面のいちばん上、右のはしに出します */
 #ver{flex:none;margin-left:auto;align-self:center;padding:0 6px;font-size:11.5px;color:#7a8493;white-space:nowrap;letter-spacing:.02em}
 /* 印刷プレビュー。印刷したときの用紙を、そのまま画面いっぱいに映します */
@@ -218,6 +235,7 @@ footer .note2{min-width:0}
 </div>
 <div id="main">
   <div id="stage"><canvas id="cv"></canvas></div>
+  <button id="sideToggle" title="右の欄（用紙と地図・差し込み用写真）をしまいます">▶</button>
   <aside id="side">
     <div class="sec">
       <div class="secHead">📄 用紙と地図</div>
@@ -308,7 +326,7 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='3.4';
+const APP_VERSION='3.5';
 const APP_DATE='2026-07-30';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -1816,6 +1834,20 @@ function applyZoom(){
   cv.style.width=Math.round(cv.width*s)+'px';
   cv.style.height=Math.round(cv.height*s)+'px';
 }
+/* ===== 右の欄（用紙と地図・差し込み用写真）を、しまう・出す =====
+   web版だけのつまみです。狭い画面で、用紙をひろく見るために使います */
+const sideToggle=document.getElementById('sideToggle');
+sideToggle.addEventListener('click',()=>{
+  const hide=!document.body.classList.contains('sideHidden');
+  document.body.classList.toggle('sideHidden',hide);
+  sideToggle.textContent=hide?'◀':'▶';
+  sideToggle.title=hide?'右の欄（用紙と地図・差し込み用写真）を出します'
+                       :'右の欄（用紙と地図・差し込み用写真）をしまいます';
+  setHint(hide?'右の欄をしまいました。用紙の右のはしにある「◀」で、いつでも出せます。'
+             :'右の欄を出しました。');
+  computeFit();                                  // 用紙の大きさを測り直します
+});
+
 /* ===== ツールバーの幅あわせ =====
    画面（ウィンドウ）が狭いときは、まず 8割まで小さくして入るようにします。
    それでも入りきらないときは、段を増やさずに横へすべらせて見せます。

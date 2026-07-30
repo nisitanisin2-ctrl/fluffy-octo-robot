@@ -20,6 +20,11 @@ const APP_ICON = path.join(BASE, 'icon-512.png');
    切り取ったときに真っ白になることがあります。それを止めない設定です */
 app.commandLine.appendSwitch('disable-backgrounding-occluded-windows');
 
+/* このアプリの名札を付けます。index.html は、これを見て
+   「パソコン用アプリで動いている」と分かります（ブラウザ版と出し分けるため）。
+   地図の画面に渡すときは、preload.js がこの名札を外しています */
+app.userAgentFallback = app.userAgentFallback + ' genba-keiro-desktop/' + app.getVersion();
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1500,
