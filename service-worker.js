@@ -2,7 +2,7 @@
    アプリ本体を書き換えたら、index.html の APP_VERSION と、下の CACHE 名を
    そろえて新しくしてください。
    （新しい名前にすると、古いキャッシュが捨てられて確実に更新されます） */
-const CACHE = 'genba-route-v3.1';
+const CACHE = 'genba-route-v3.4';
 
 const ASSETS = [
   './',

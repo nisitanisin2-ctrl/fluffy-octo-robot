@@ -13,7 +13,15 @@
 
 const STORE_PLACES = 'genba.desktop.places';   // 登録した場所
 const STORE_LAST   = 'genba.desktop.last';     // 前回開いていた場所
+const STORE_SHORTS = 'genba.desktop.shortcuts';// よく使う地図（ボタン3つ）
 const HOME = 'https://www.google.com/maps';
+
+/* ボタン3つの、はじめの中身。右クリックでいつでも入れ替えられます */
+const DEFAULT_SHORTS = [
+  { name: 'Google マップ', url: HOME },
+  { name: '地理院地図',    url: 'https://maps.gsi.go.jp/' },
+  null
+];
 
 window.addEventListener('DOMContentLoaded', () => {
   try { setupMapPanel(); }
@@ -47,6 +55,12 @@ function setupMapPanel() {
       <button id="mpReload" title="読み込み直す">↻</button>
       <input id="mpAddr" placeholder="住所・現場名・Googleマップのアドレスを入れて Enter">
       <button id="mpGo">表示</button>
+      <span class="mpShortWrap">
+        <span class="mpLbl">よく使う地図</span>
+        <button class="mpShort" data-i="0"></button>
+        <button class="mpShort" data-i="1"></button>
+        <button class="mpShort" data-i="2"></button>
+      </span>
       <select id="mpPlaces" title="登録した場所"><option value="">登録した場所…</option></select>
       <button id="mpSave" title="今開いている場所に名前を付けて登録します">★ 登録</button>
       <button id="mpDelPlace" title="選んでいる登録を消します">登録を消す</button>
@@ -61,6 +75,11 @@ function setupMapPanel() {
     </div>
     <div id="mapPanelHint"></div>`;
   document.body.appendChild(panel);
+
+  /* 窓が狭いときも段を増やさず、横へすべらせて見せます（アプリ本体と同じ動き） */
+  if (typeof window.makeBarSlidable === 'function') {
+    window.makeBarSlidable(panel.querySelector('#mapPanelBar'));
+  }
 
   const $ = id => panel.querySelector('#' + id);
   const view = $('mpView'), overlay = $('mpOverlay'), rectEl = $('mpRect'), hint = $('mapPanelHint');
@@ -109,15 +128,27 @@ function setupMapPanel() {
     const p = loadPlaces()[Number(places.value)];
     if (p) { addr.value = p.url; go(p.url); setHint('「' + p.name + '」を開きました。'); }
   };
-  $('mpSave').onclick = () => {
-    const url = view.getURL() || toURL(addr.value);
-    const name = prompt('この場所に名前を付けてください（例：○○工業 本社）', addr.value || '現場');
+  $('mpSave').onclick = async () => {
+    const url = currentURL() || toURL(addr.value);
+    const name = await askText('この場所に名前を付けてください（例：○○工業 本社）', guessName());
     if (!name) return;
     const list = loadPlaces();
     list.push({ name: name, url: url });
     savePlaces(list); renderPlaces();
     setHint('「' + name + '」を登録しました。次からは左の一覧で選べます。');
   };
+  /* 今ひらいている地図のアドレス。
+     地図がまだ出そろっていないと getURL は使えないので、そのときは空を返します */
+  function currentURL() {
+    try { return view.getURL() || ''; } catch (e) { return ''; }
+  }
+  /* 名前のたたき台。地図の見出しから「- Google マップ」などを取り除きます */
+  function guessName() {
+    let t = '';
+    try { t = view.getTitle() || ''; } catch (e) {}
+    t = t.replace(/\s*[-–|]\s*Google\s*(マップ|Maps).*$/i, '').trim();
+    return /^google\s*(マップ|maps)$/i.test(t) ? '' : t;
+  }
   $('mpDelPlace').onclick = () => {
     const i = Number(places.value);
     const list = loadPlaces();
@@ -126,6 +157,84 @@ function setupMapPanel() {
     list.splice(i, 1); savePlaces(list); renderPlaces();
     setHint('登録を消しました。');
   };
+
+  /* ---------- よく使う地図（ショートカットボタン3つ） ----------
+     Google マップ以外の地図（自治体の地図、地理院地図、社内の地図など）を
+     3つまで入れておけます。押すとその地図がすぐ出ます。 */
+  const shortBtns = Array.from(panel.querySelectorAll('.mpShort'));
+
+  function loadShorts() {
+    let list = null;
+    try { list = JSON.parse(localStorage.getItem(STORE_SHORTS)); } catch (e) {}
+    if (!Array.isArray(list)) list = DEFAULT_SHORTS.slice();
+    list.length = 3;
+    return list;
+  }
+  function saveShorts(list) {
+    try { localStorage.setItem(STORE_SHORTS, JSON.stringify(list)); } catch (e) {}
+  }
+  function renderShorts() {
+    const list = loadShorts();
+    shortBtns.forEach((b, i) => {
+      const s = list[i];
+      if (s && s.url) {
+        b.textContent = s.name || s.url;
+        b.classList.remove('empty');
+        b.title = s.name + '\n' + s.url
+                + '\n\nクリック：この地図を出します／右クリック：入れ直す・消す';
+      } else {
+        b.textContent = '＋ 空き' + (i + 1);
+        b.classList.add('empty');
+        b.title = 'よく使う地図を入れておけます。クリックすると入れられます';
+      }
+    });
+  }
+  /* この番号に地図を入れる（アドレス → 名前 の順に聞きます） */
+  async function setShort(i) {
+    const list = loadShorts();
+    const cur = list[i] || {};
+    const url0 = await askText(
+      'ボタン' + (i + 1) + 'に入れる地図のアドレス（URL）を入れてください。\n'
+      + '今ひらいている地図でよければ、そのまま OK を押してください。',
+      cur.url || currentURL() || addr.value || '');
+    if (!url0) return false;
+    const url = /^https?:\/\//i.test(url0.trim()) ? url0.trim() : toURL(url0);
+    const name = await askText(
+      'ボタンに出す名前を入れてください（例：地理院地図）',
+      cur.name || guessName() || hostOf(url));
+    list[i] = { name: (name || hostOf(url)), url: url };
+    saveShorts(list); renderShorts();
+    setHint('ボタン' + (i + 1) + 'に「' + list[i].name + '」を入れました。次からは押すだけで出せます。');
+    return true;
+  }
+  function hostOf(url) {
+    try { return new URL(url).hostname.replace(/^www\./, ''); } catch (e) { return '地図'; }
+  }
+
+  shortBtns.forEach(b => {
+    const i = Number(b.dataset.i);
+    b.onclick = async () => {
+      const s = loadShorts()[i];
+      if (!s || !s.url) { await setShort(i); return; }   // 空きなら、まず入れてもらいます
+      addr.value = s.url; go(s.url);
+      setHint('「' + s.name + '」を出しています。');
+    };
+    b.oncontextmenu = async e => {
+      e.preventDefault();
+      const s = loadShorts()[i];
+      if (!s || !s.url) { await setShort(i); return; }
+      const ans = await askChoice('「' + s.name + '」をどうしますか？',
+        [{ value: 'edit', label: '入れ直す' }, { value: 'del', label: '消す' },
+         { value: '', label: 'やめる' }]);
+      if (ans === 'edit') await setShort(i);
+      else if (ans === 'del') {
+        const list = loadShorts();
+        list[i] = null; saveShorts(list); renderShorts();
+        setHint('ボタン' + (i + 1) + 'を空きに戻しました。');
+      }
+    };
+  });
+  renderShorts();
 
   /* ---------- 画面を開く・閉じる ---------- */
   function open() {
@@ -244,10 +353,78 @@ function setupMapPanel() {
   /* Esc で閉じる。アプリ本体の Esc より先に受け取ります */
   window.addEventListener('keydown', e => {
     if (panel.hidden || e.key !== 'Escape') return;
+    if (document.querySelector('.mpAskBack')) return;   // 名前を入れる窓が出ている間はそちら優先
     e.stopPropagation();
     if (picking) { stopPick(); setHint('範囲を選ぶのをやめました。'); }
     else close();
   }, true);
+}
+
+/* 文字を入れてもらう小さな窓。
+   パソコン用アプリ（Electron）では prompt が使えないので、自分で作っています。
+   OK を押すか Enter で入れた文字を、キャンセル・Esc・×印の外側を押すと空を返します */
+function askText(message, initial) {
+  return new Promise(resolve => {
+    const back = document.createElement('div');
+    back.className = 'mpAskBack';
+    back.innerHTML = `
+      <div class="mpAsk">
+        <div class="mpAskMsg"></div>
+        <input class="mpAskInput" type="text">
+        <div class="mpAskBtns">
+          <button class="mpAskCancel">キャンセル</button>
+          <button class="mpAskOk primary">OK</button>
+        </div>
+      </div>`;
+    back.querySelector('.mpAskMsg').textContent = message;
+    const input = back.querySelector('.mpAskInput');
+    input.value = initial || '';
+    document.body.appendChild(back);
+    input.focus(); input.select();
+
+    let done = false;
+    function finish(value) {
+      if (done) return;
+      done = true;
+      back.remove();
+      resolve(value);
+    }
+    back.querySelector('.mpAskOk').onclick = () => finish(input.value.trim());
+    back.querySelector('.mpAskCancel').onclick = () => finish('');
+    back.addEventListener('pointerdown', e => { if (e.target === back) finish(''); });
+    back.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); finish(input.value.trim()); }
+      else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(''); }
+    });
+  });
+}
+
+/* どうするか選んでもらう小さな窓。押したボタンの value を返します
+   （Esc・外側クリックは、いちばん最後のボタンの value を返します＝ふつうは「やめる」） */
+function askChoice(message, buttons) {
+  return new Promise(resolve => {
+    const back = document.createElement('div');
+    back.className = 'mpAskBack';
+    back.innerHTML = '<div class="mpAsk"><div class="mpAskMsg"></div><div class="mpAskBtns"></div></div>';
+    back.querySelector('.mpAskMsg').textContent = message;
+    const btns = back.querySelector('.mpAskBtns');
+    let done = false;
+    function finish(value) { if (done) return; done = true; back.remove(); resolve(value); }
+    buttons.forEach((b, i) => {
+      const el = document.createElement('button');
+      el.textContent = b.label;
+      if (i === 0) el.className = 'primary';
+      el.onclick = () => finish(b.value);
+      btns.appendChild(el);
+    });
+    const cancelValue = buttons[buttons.length - 1].value;
+    back.addEventListener('pointerdown', e => { if (e.target === back) finish(cancelValue); });
+    back.addEventListener('keydown', e => {
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); finish(cancelValue); }
+    });
+    document.body.appendChild(back);
+    btns.firstChild.focus();
+  });
 }
 
 /* 見た目。アプリ本体のボタンの形をそのまま受け継ぐので、最低限だけ足します */
@@ -255,17 +432,33 @@ function addStyle() {
   const css = `
 #mapPanel{position:fixed;inset:0;z-index:100;background:#2b3038;display:flex;flex-direction:column}
 #mapPanel[hidden]{display:none}
-#mapPanelBar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:7px 10px;background:#2b3038}
-#mapPanelBar .mpGap{flex:1}
-#mapPanelBar input{font:inherit;font-size:14px;padding:6px 9px;border:1px solid #55606e;border-radius:6px;min-width:280px;flex:1 1 280px}
+/* 地図の画面のツールバーも、段を増やさずに横へすべらせて見せます */
+#mapPanelBar{flex:none;display:flex;flex-wrap:nowrap;align-items:center;gap:6px;padding:7px 10px;background:#2b3038;
+             overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin}
+#mapPanelBar::-webkit-scrollbar{height:7px}
+#mapPanelBar::-webkit-scrollbar-thumb{background:#59636f;border-radius:4px}
+#mapPanelBar::-webkit-scrollbar-track{background:transparent}
+#mapPanelBar>*{flex:none}
+#mapPanelBar.dragging{cursor:grabbing;user-select:none}
+#mapPanelBar .mpGap{flex:1 1 0;min-width:8px}
+#mapPanelBar input{font:inherit;font-size:14px;padding:6px 9px;border:1px solid #55606e;border-radius:6px;min-width:180px;flex:1 1 180px}
 #mapPanelBar select{font:inherit;padding:5px;border:1px solid #55606e;border-radius:6px;max-width:190px}
 #mapPanelBar button.active{background:#1a73e8;color:#fff;border-color:#1a73e8}
+.mpShortWrap{display:flex;align-items:center;gap:5px;padding:2px 6px;border-radius:8px;background:#3a4049}
+.mpShortWrap .mpLbl{color:#cfd6df;font-size:12px}
+#mapPanelBar .mpShort{max-width:170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#mapPanelBar .mpShort.empty{color:#7c8794;border-style:dashed}
 #mapPanelBody{flex:1;position:relative;min-height:0;background:#fff}
 #mpView{position:absolute;inset:0;width:100%;height:100%;border:0}
 #mpOverlay{position:absolute;inset:0;pointer-events:none}
 #mpOverlay.on{pointer-events:auto;cursor:crosshair;background:rgba(26,115,232,.06)}
 #mpRect{position:absolute;border:2px dashed #1a73e8;background:rgba(26,115,232,.12);box-shadow:0 0 0 9999px rgba(0,0,0,.18)}
-#mapPanelHint{flex:none;background:#fffbe6;border-top:1px solid #e8dfa8;color:#6b6000;padding:5px 12px;min-height:24px;font-size:12.5px}`;
+#mapPanelHint{flex:none;background:#fffbe6;border-top:1px solid #e8dfa8;color:#6b6000;padding:5px 12px;min-height:24px;font-size:12.5px}
+.mpAskBack{position:fixed;inset:0;z-index:200;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+.mpAsk{background:#fff;color:#222;border-radius:10px;padding:16px 18px;min-width:340px;max-width:90vw;box-shadow:0 10px 34px rgba(0,0,0,.4)}
+.mpAskMsg{font-size:14px;margin-bottom:10px;white-space:pre-wrap}
+.mpAskInput{font:inherit;font-size:15px;width:100%;padding:7px 9px;border:1px solid #9aa4b0;border-radius:6px;box-sizing:border-box}
+.mpAskBtns{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}`;
   const el = document.createElement('style');
   el.textContent = css;
   document.head.appendChild(el);

@@ -17,8 +17,17 @@
 html,body{height:100%;margin:0}
 body{display:flex;flex-direction:column;font-family:"Segoe UI","Meiryo",system-ui,sans-serif;background:#4a4f57;font-size:14px}
 #toolbar{background:#fff;border-bottom:1px solid #ccc;padding:5px 7px;display:flex;flex-direction:column;gap:5px}
-.bar{display:flex;flex-wrap:wrap;gap:4px;align-items:stretch}
-.grp{display:flex;align-items:center;gap:2px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:3px 4px}
+/* ツールバーの1段。段を増やさず、入りきらないときは横にすべらせて見せます
+   （指でなぞる／マウスでつまんで動かす／マウスのホイール） */
+.bar{display:flex;flex-wrap:nowrap;gap:4px;align-items:stretch;
+     overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:thin}
+.bar::-webkit-scrollbar{height:7px}
+.bar::-webkit-scrollbar-thumb{background:#c3cad3;border-radius:4px}
+.bar::-webkit-scrollbar-thumb:hover{background:#a7b1bd}
+.bar::-webkit-scrollbar-track{background:transparent}
+.bar.slidable{cursor:grab}
+.bar.dragging{cursor:grabbing;user-select:none}
+.grp{flex:none;display:flex;align-items:center;gap:2px;background:#f2f4f7;border:1px solid #e2e6eb;border-radius:9px;padding:3px 4px}
 .grp>.lbl{font-size:10px;color:#78808d;white-space:nowrap;margin-right:2px}
 button{font:inherit;padding:6px 10px;border:1px solid #bbb;border-radius:6px;background:#fff;cursor:pointer;white-space:nowrap}
 button:hover{background:#e9edf2}
@@ -73,7 +82,8 @@ input[type=range]{padding:0}
 #btnArrange{margin:0 10px 10px}
 footer{flex:none;background:#3a3e45;color:#bbb;font-size:12px;padding:4px 12px;display:flex;flex-wrap:wrap;gap:4px 16px;align-items:baseline;justify-content:space-between}
 footer .note2{min-width:0}
-#ver{flex:none;margin-left:auto;color:#96a0ad;white-space:nowrap;letter-spacing:.02em}
+/* バージョン表示。画面のいちばん上、右のはしに出します */
+#ver{flex:none;margin-left:auto;align-self:center;padding:0 6px;font-size:11.5px;color:#7a8493;white-space:nowrap;letter-spacing:.02em}
 /* 印刷プレビュー。印刷したときの用紙を、そのまま画面いっぱいに映します */
 #preview{position:fixed;inset:0;z-index:50;background:rgba(30,34,40,.82);display:flex;flex-direction:column}
 #preview[hidden]{display:none}
@@ -96,8 +106,8 @@ footer .note2{min-width:0}
       <span class="lbl">現場名</span>
       <input id="siteName" placeholder="用紙の上に印刷されます">
       <select id="titleAlign" title="現場名を、用紙の上のどこに印刷するかを選びます">
-        <option value="left" selected>左寄せ</option>
-        <option value="center">中央</option>
+        <option value="left">左寄せ</option>
+        <option value="center" selected>中央</option>
         <option value="right">右寄せ</option>
       </select>
     </div>
@@ -123,8 +133,22 @@ footer .note2{min-width:0}
       <button id="btnZoomIn" title="拡大">＋</button>
       <button id="btnFit">全体</button>
     </div>
+    <span id="ver"></span>
   </div>
   <div class="bar">
+    <div class="grp">
+      <span class="lbl">線の角</span>
+      <label class="chk" title="チェックを入れると、矢印・罫線・道の曲がり角が、角ばらずになめらかなカーブになります。線を選んでから切り替えると、その線だけ変えられます">
+        <input type="checkbox" id="smoothChk" checked>⌒ カーブを丸くする
+      </label>
+    </div>
+    <div class="grp">
+      <span class="lbl">編集</span>
+      <button id="btnUndo" title="元に戻す（Ctrl+Z）">↩ 戻す</button>
+      <button id="btnRedo" title="やり直す（Ctrl+Y）">↪ 進む</button>
+      <button id="btnDel" title="選んだものを削除（Delete）">🗑 削除</button>
+      <button id="btnClear">全消去</button>
+    </div>
     <div class="grp">
       <span class="lbl">道具</span>
       <button class="tool active" data-tool="select">🖱 選択</button>
@@ -189,19 +213,6 @@ footer .note2{min-width:0}
         <option value="0.4">40%</option>
         <option value="0.25">25%</option>
       </select>
-    </div>
-    <div class="grp">
-      <span class="lbl">線の角</span>
-      <label class="chk" title="チェックを入れると、矢印・罫線・道の曲がり角が、角ばらずになめらかなカーブになります。線を選んでから切り替えると、その線だけ変えられます">
-        <input type="checkbox" id="smoothChk">⌒ カーブを丸くする
-      </label>
-    </div>
-    <div class="grp">
-      <span class="lbl">編集</span>
-      <button id="btnUndo" title="元に戻す（Ctrl+Z）">↩ 戻す</button>
-      <button id="btnRedo" title="やり直す（Ctrl+Y）">↪ 進む</button>
-      <button id="btnDel" title="選んだものを削除（Delete）">🗑 削除</button>
-      <button id="btnClear">全消去</button>
     </div>
   </div>
 </div>
@@ -279,7 +290,6 @@ footer .note2{min-width:0}
 <div id="hint"></div>
 <footer>
   <span class="note2">地図画像は Googleマップ／Yahoo!地図 それぞれの利用規約の範囲内でご利用ください。青と橙の点線は画面上の目安で、印刷や画像保存には出ません。</span>
-  <span id="ver"></span>
 </footer>
 <div id="preview" hidden>
   <div id="previewBar">
@@ -298,8 +308,8 @@ footer .note2{min-width:0}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='3.1';
-const APP_DATE='2026-07-29';
+const APP_VERSION='3.4';
+const APP_DATE='2026-07-30';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
 const stage=document.getElementById('stage');
@@ -346,9 +356,9 @@ let showPlaceholder=true;             // 用紙の中央に出す「ここに地
 
 const HINTS={
  select:'書き込みをクリックで選択、ドラッグで移動。右下の□で大きさ変更。矢印は角の□で形を直せます。下スペースの境目は、中央のつまみを上下にドラッグしても変えられます。',
- arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。「⌒ カーブを丸くする」にチェックを入れると、曲がり角がなめらかになります。Escで中止。',
+ arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。曲がり角は、はじめからなめらかなカーブになります（「⌒ カーブを丸くする」のチェックを外すと角ばります）。Escで中止。',
  line:'クリックで点を追加 → ダブルクリック（または右クリック／Enter）で線を確定。矢印の付かない線です。左の「線の種類」で実線・破線・点線などを選べます。Escで中止。',
- road:'道の真ん中をクリックしていくと、2本の線（2重線）で道を描きます → ダブルクリック（または右クリック／Enter）で確定。線の太さは「太さ」、線と線の間は「道幅」で選べます。「⌒ カーブを丸くする」で曲がり角をなめらかにできます。Escで中止。',
+ road:'道の真ん中をクリックしていくと、2本の線（2重線）で道を描きます → ダブルクリック（または右クリック／Enter）で確定。線の太さは「太さ」、線と線の間は「道幅」で選べます。曲がり角は、はじめからなめらかなカーブになります（「⌒ カーブを丸くする」のチェックを外すと角ばります）。Escで中止。',
  pin:'クリックした場所に番号ピン（1・2・3…）を置きます。',
  guard:'クリックした場所にガードマン（警備員）のピンを置きます。ダブルクリックで文字を変更できます。',
  wash:'クリックした場所にミキサー車（生コン車）の洗い場のピンを置きます。ダブルクリックで文字を変更できます。',
@@ -1806,12 +1816,94 @@ function applyZoom(){
   cv.style.width=Math.round(cv.width*s)+'px';
   cv.style.height=Math.round(cv.height*s)+'px';
 }
-window.addEventListener('resize',computeFit);
+/* ===== ツールバーの幅あわせ =====
+   画面（ウィンドウ）が狭いときは、まず 8割まで小さくして入るようにします。
+   それでも入りきらないときは、段を増やさずに横へすべらせて見せます。
+     ・スマホ、タブレット … 指でなぞる
+     ・パソコン … ツールバーの空いている所をマウスでつまんで動かす
+     ・マウスのホイール（左右スクロールにも対応） */
+const MIN_ZOOM=0.8;
+const toolbarEl=document.getElementById('toolbar');
+const barEls=Array.from(toolbarEl.querySelectorAll('.bar'));
 
-/* 画面右下のバージョン表示 */
+function barRatio(){                              // 1 なら、いちばん長い段がちょうど入っています
+  let r=1;
+  for(const b of barEls){
+    if(b.scrollWidth>0) r=Math.min(r,(b.clientWidth-2)/b.scrollWidth);
+  }
+  return r;
+}
+function fitToolbar(){
+  toolbarEl.style.zoom='';                       // いちど元の大きさに戻して測ります
+  let z=Math.max(MIN_ZOOM,Math.min(1,barRatio()*0.995));
+  if(z<0.995){
+    toolbarEl.style.zoom=z;
+    /* 小さくすると文字や枠の丸め方が少し変わるので、入ったか確かめて微調整します
+       （小さくするのは 8割まで。それ以上は横へすべらせて見てもらいます） */
+    for(let i=0;i<3&&z>MIN_ZOOM;i++){
+      const r=barRatio();
+      if(r>=1) break;
+      z=Math.max(MIN_ZOOM,z*r*0.995);
+      toolbarEl.style.zoom=z;
+    }
+  }
+  markSlidable();
+  computeFit();                                  // ツールバーの高さが変わるので、用紙も測り直します
+}
+function markSlidable(){
+  for(const b of barEls) b.classList.toggle('slidable',b.scrollWidth>b.clientWidth+1);
+}
+
+/* この1段を、横にすべらせて見られるようにします（地図の画面でも使います） */
+function makeBarSlidable(el){
+  el.addEventListener('wheel',e=>{
+    if(el.scrollWidth<=el.clientWidth) return;
+    const d=Math.abs(e.deltaX)>Math.abs(e.deltaY)?e.deltaX:e.deltaY;
+    if(!d) return;
+    el.scrollLeft+=d;
+    e.preventDefault();
+  },{passive:false});
+
+  /* マウスでつまんで動かす。指のときは、そのままなぞれば動くので何もしません */
+  let start=null,moved=false;
+  el.addEventListener('pointerdown',e=>{
+    moved=false;
+    if(e.pointerType!=='mouse'||e.button!==0) return;
+    if(e.target.closest('input,select,textarea')) return;
+    if(el.scrollWidth<=el.clientWidth) return;
+    start={x:e.clientX,left:el.scrollLeft};
+  });
+  window.addEventListener('pointermove',e=>{
+    if(!start) return;
+    const dx=e.clientX-start.x;
+    if(!moved&&Math.abs(dx)<5) return;
+    moved=true;
+    el.classList.add('dragging');
+    el.scrollLeft=start.left-dx;
+    e.preventDefault();
+  });
+  window.addEventListener('pointerup',()=>{
+    start=null;
+    el.classList.remove('dragging');
+  });
+  /* つまんで動かしたときは、ボタンが押されたことにしません */
+  el.addEventListener('click',e=>{
+    if(!moved) return;
+    moved=false;
+    e.preventDefault();
+    e.stopPropagation();
+  },true);
+}
+window.makeBarSlidable=makeBarSlidable;           // パソコン用アプリの地図画面から使います
+
+barEls.forEach(makeBarSlidable);
+window.addEventListener('resize',fitToolbar);
+fitToolbar();
+
+/* 画面のいちばん上、右のはしに出すバージョン表示 */
 (function(){
   const el=document.getElementById('ver');
-  el.textContent='バージョン '+APP_VERSION+'（'+APP_DATE+'）';
+  el.textContent='バージョン '+APP_VERSION;
   const installed=window.matchMedia('(display-mode: standalone)').matches;
   el.title='現場経路作成アプリ バージョン '+APP_VERSION+'\n更新日 '+APP_DATE
           +'\n'+(installed?'このパソコンにインストール済みの状態で動いています':'ブラウザで開いています');
