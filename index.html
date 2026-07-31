@@ -420,7 +420,7 @@ button.tool img{height:17px;width:17px;object-fit:contain;vertical-align:-3px;ma
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='4.1';
+const APP_VERSION='4.2';
 const APP_DATE='2026-07-31';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -1215,20 +1215,14 @@ function drawStamp(o){
   if(im&&im.ready)ctx.drawImage(stampPaint(im,o.color),x+pad,y+pad,s-pad*2,s-pad*2);
   pinLabel(o,guardR(o));
 }
-/* 自作の目印。読み込んだ絵を、そのままの色で白い四角の中に描きます
-   （洗い場・現場のように色で塗りつぶすと、自分の絵の色が消えてしまうため。
-     四角のふちだけは、選んでいる色になります） */
+/* 自作の目印。読み込んだ絵を、そのままの色で、そのまま描きます。
+   枠も白地も付けないので、背景の透けた PNG は地図がそのまま透けて見えます
+   （洗い場・現場のように色で塗りつぶすと、自分の絵の色が消えてしまうため、
+     絵には色を掛けません。下に出る文字だけ、選んでいる色になります） */
 function drawMark(o){
-  const im=markImage(o.src), s=stampSide(o), x=o.x-s/2, y=o.y-s;
-  const rad=s*0.16, bw=Math.max(1.5,s*0.045), pad=s*0.10;
-  const box=()=>{ ctx.beginPath();
-    if(ctx.roundRect)ctx.roundRect(x,y,s,s,rad); else ctx.rect(x,y,s,s); };
-  box(); ctx.lineWidth=bw*2.6; ctx.strokeStyle='#fff'; ctx.stroke();
-  box(); ctx.fillStyle='#fff'; ctx.fill();
-  box(); ctx.lineWidth=bw; ctx.strokeStyle=o.color; ctx.stroke();
+  const im=markImage(o.src), s=stampSide(o), y=o.y-s;
   if(im&&im.ready&&im.naturalWidth){
-    const inner=s-pad*2;
-    const k=Math.min(inner/im.naturalWidth,inner/im.naturalHeight);
+    const k=Math.min(s/im.naturalWidth,s/im.naturalHeight);
     const w=im.naturalWidth*k, h=im.naturalHeight*k;
     ctx.drawImage(im,o.x-w/2,y+s/2-h/2,w,h);
   }

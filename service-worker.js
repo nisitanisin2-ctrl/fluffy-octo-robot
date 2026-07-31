@@ -2,7 +2,7 @@
    アプリ本体を書き換えたら、index.html の APP_VERSION と、下の CACHE 名を
    そろえて新しくしてください。
    （新しい名前にすると、古いキャッシュが捨てられて確実に更新されます） */
-const CACHE = 'genba-route-v4.1';
+const CACHE = 'genba-route-v4.2';
 
 /* 自分のキャッシュだけに付ける目印。
    保存場所（caches）は、同じサイトに置いた他のアプリ（表電卓・写真メモなど）と
