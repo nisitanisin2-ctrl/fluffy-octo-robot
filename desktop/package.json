@@ -7,7 +7,9 @@
   "author": "nisitanisin2-ctrl",
   "scripts": {
     "start": "electron .",
-    "dist": "electron-builder --win portable"
+    "dist": "electron-builder --win",
+    "dist:exe": "electron-builder --win portable",
+    "dist:folder": "electron-builder --win dir"
   },
   "devDependencies": {
     "electron": "^40.0.0",
@@ -33,10 +35,11 @@
       { "from": "../manifest.json", "to": "app/manifest.json" }
     ],
     "win": {
-      "target": ["portable"],
+      "target": ["portable", "dir"],
       "icon": "../icons/app.ico",
       "artifactName": "現場経路作成アプリ.exe"
     },
+    "electronLanguages": ["ja", "en-US"],
     "portable": {
       "artifactName": "現場経路作成アプリ.exe",
       "unpackDirName": "genba-keiro-app"

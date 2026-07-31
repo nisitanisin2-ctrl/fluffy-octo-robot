@@ -25,4 +25,6 @@ desktop.ini
 # 出来上がった exe（大きいので GitHub には上げません。作り直しは desktop で npm run dist）
 配布用/
 *配布用/
+フォルダ版/
+*フォルダ版/
 desktop/dist/
