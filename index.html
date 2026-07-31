@@ -118,10 +118,41 @@ html:not(.desktop) footer{display:none}
 /* プレビューの中に置いた「ふちの余白」。ここで決めると、すぐ見た目に出ます */
 #previewBar .pvField{display:flex;align-items:center;gap:6px;font-size:13px;color:#e6ebf2;white-space:nowrap;cursor:pointer}
 #previewBar .pvField select{cursor:pointer}
+/* ===== 設定の画面 ===== */
+#settings{position:fixed;inset:0;z-index:60;background:rgba(30,34,40,.55);display:flex;align-items:center;justify-content:center;padding:16px}
+#settings[hidden]{display:none}
+#setBox{background:#fff;border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.45);
+  width:560px;max-width:100%;max-height:100%;display:flex;flex-direction:column}
+.setHead{flex:none;display:flex;align-items:center;justify-content:space-between;
+  padding:11px 14px;border-bottom:1px solid #e3e6ea;font-weight:bold;font-size:15px}
+.setHead button{padding:3px 9px}
+.setBody{flex:1;overflow-y:auto;padding:4px 14px 12px}
+.setSec{margin:14px 0 6px;font-weight:bold;color:#1a5fb4;border-bottom:2px solid #e6eef9;padding-bottom:3px}
+.setNote{font-size:12px;color:#5b6470;line-height:1.7;margin-bottom:8px}
+.setRow{display:flex;align-items:center;gap:8px;padding:4px 0}
+.setRow>span{flex:1;min-width:0;font-size:13.5px}
+.setRow select{width:150px}
+.setFoot{flex:none;display:flex;gap:8px;justify-content:flex-end;padding:10px 14px;border-top:1px solid #e3e6ea}
+/* 自作の目印のマス */
+.mkSlot{display:flex;align-items:center;gap:9px;padding:7px 0;border-bottom:1px solid #eef0f3}
+.mkSlot:last-child{border-bottom:none}
+.mkThumb{flex:none;width:46px;height:46px;border:1px solid #ccd2d9;border-radius:8px;background:#fafbfc;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;color:#aab2bc;font-size:11px}
+.mkThumb img{max-width:100%;max-height:100%;display:block}
+.mkName{flex:1;min-width:0;font:inherit;font-size:14px;padding:5px 8px;border:1px solid #bbb;border-radius:6px}
+.mkSlot button{padding:5px 9px;font-size:13px}
+/* 目印ボタンの中に出る、自作の絵 */
+button.tool img{height:17px;width:17px;object-fit:contain;vertical-align:-3px;margin-right:3px}
+/* ===== 浮かしたまとまり ===== */
+#floatLayer{position:fixed;inset:0;z-index:30;pointer-events:none}
+#floatLayer .grp{position:absolute;pointer-events:auto;background:#fff;border-color:#c3ccd8;
+  box-shadow:0 4px 16px rgba(0,0,0,.28);padding:4px 5px}
+#floatLayer .grp>.lbl{background:#eef2f8}
+.grp .dock{padding:1px 4px;font-size:11px;line-height:1.5;border-radius:5px;color:#4a5866}
 #previewPaper{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px}
 #previewImg{max-width:100%;height:auto;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 @media print{
-  #toolbar,#hint,footer,#side,#preview{display:none!important}
+  #toolbar,#hint,footer,#side,#preview,#settings,#floatLayer{display:none!important}
   html,body{margin:0;padding:0;height:auto;background:#fff;display:block}
   #main,#stage{display:block;margin:0;padding:0;overflow:visible}
   #cv{width:100%!important;height:auto!important;box-shadow:none;margin:0;display:block}
@@ -162,6 +193,7 @@ html:not(.desktop) footer{display:none}
       <button class="tool" data-tool="guard">👮 警備員</button>
       <button class="tool" data-tool="wash" title="生コン車（ミキサー車）の洗い場の位置を示すピンを置きます">🚿 洗い場</button>
       <button class="tool" data-tool="genba" title="工事現場の位置を示すピンを置きます">🏗 現場</button>
+      <!-- 自作の目印（設定で読み込んだぶんだけ、ここに足されます） -->
     </div>
     <span id="ver"></span>
   </div>
@@ -249,6 +281,10 @@ html:not(.desktop) footer{display:none}
       <button id="btnFit">全体</button>
       <button id="btnResetBar" title="ツールバーの並び（各まとまりの場所）を、はじめの並びに戻します">↺ 並びを戻す</button>
     </div>
+    <div class="grp" data-g="setting">
+      <span class="lbl">設定</span>
+      <button id="btnSettings" title="道具のはじめの大きさを決めたり、自作の目印を読み込んだりできます">⚙ 設定</button>
+    </div>
     <div class="grp" data-g="smooth">
       <span class="lbl">線の角丸</span>
       <label class="chk" title="チェックを入れると、矢印・罫線・道の曲がり角が、角ばらずになめらかなカーブになります。線を選んでから切り替えると、その線だけ変えられます">
@@ -257,6 +293,7 @@ html:not(.desktop) footer{display:none}
     </div>
   </div>
 </div>
+<div id="floatLayer"></div>
 <div id="main">
   <div id="stage"><canvas id="cv"></canvas></div>
   <button id="sideToggle" title="右の欄（用紙と地図・差し込み用写真）をしまいます">▶</button>
@@ -352,6 +389,28 @@ html:not(.desktop) footer{display:none}
   </div>
   <div id="previewPaper"><img id="previewImg" alt="印刷したときの用紙"></div>
 </div>
+<!-- 設定。道具のはじめの大きさと、自作の目印を決めます -->
+<div id="settings" hidden>
+  <div id="setBox">
+    <div class="setHead"><span>⚙ 設定</span><button id="btnSetClose" title="閉じます">✕</button></div>
+    <div class="setBody">
+      <div class="setSec">道具の、はじめの大きさ</div>
+      <div class="setNote">新しく置くときの大きさです。置いたあとは、これまでどおり □ を引っぱって変えられます。</div>
+      <div id="sizeRows"></div>
+
+      <div class="setSec">自作の目印（4つまで）</div>
+      <div class="setNote">お手持ちの絵（PNG・JPG）を読み込むと、「目印」に自分のボタンが増えます。
+        背景の透けた PNG がきれいに出ます。絵はこのパソコンに覚え、作業ファイルにも一緒に保存されるので、
+        別のパソコンで開いても出ます。</div>
+      <div id="markSlots"></div>
+    </div>
+    <div class="setFoot">
+      <button id="btnSetReset" title="はじめの大きさを、すべて「標準」に戻します（自作の目印は消えません）">↺ 大きさを標準に戻す</button>
+      <button id="btnSetOk" class="primary">閉じる</button>
+    </div>
+  </div>
+</div>
+<input type="file" id="fileMark" accept="image/*" hidden>
 <input type="file" id="fileMap" accept="image/*" hidden>
 <input type="file" id="filePhoto" accept="image/*" multiple hidden>
 <input type="file" id="fileProj" accept=".json,application/json" hidden>
@@ -361,7 +420,7 @@ html:not(.desktop) footer{display:none}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='4.0';
+const APP_VERSION='4.1';
 const APP_DATE='2026-07-31';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -475,6 +534,83 @@ function guardR(o){ return base*2.1*o.mul; }   // 警備員・洗い場・現場
 const PIN_LABEL={guard:'警備員',wash:'洗い場',genba:'現場'};
 function textSize(o){ return Math.max(7,base*3.2*o.mul); }
 function setHint(msg){ hintEl.textContent=(msg!==undefined)?msg:(HINTS[tool]||''); }
+
+/* ===== 設定（道具のはじめの大きさ・自作の目印） =====
+   このパソコン（このブラウザ）に覚えておき、次に開いたときも同じにします */
+const DEFAULTS_KEY='genba.defaults';
+const MARKS_KEY='genba.marks';
+const SIZE_OPTS=[[0.6,'とても小さい'],[0.8,'小さい'],[1,'標準'],[1.3,'大きい'],[1.7,'とても大きい'],[2.2,'最大']];
+/* 大きさを決められる道具。key は書き込みの type と同じにしてあります */
+const SIZE_ROWS=[
+  {key:'pin',   name:'📍 番号ピン'},
+  {key:'guard', name:'👮 警備員'},
+  {key:'wash',  name:'🚿 洗い場'},
+  {key:'genba', name:'🏗 現場'},
+  {key:'mark',  name:'🏷 自作の目印'},
+  {key:'text',  name:'✎ 文字'},
+  {key:'photo', name:'🖼 写真（用紙に置くときの幅）'},
+  {key:'line',  name:'➜ 矢印・罫線・道・丸・四角の太さ'}
+];
+let defaults={};
+function defMul(key){ const v=defaults[key]; return (typeof v==='number'&&v>0)?v:1; }
+function loadDefaults(){
+  defaults={};
+  try{ const s=localStorage.getItem(DEFAULTS_KEY); if(s)defaults=JSON.parse(s)||{}; }catch(e){ defaults={}; }
+}
+function saveDefaults(){
+  try{ localStorage.setItem(DEFAULTS_KEY,JSON.stringify(defaults)); }catch(e){}
+}
+loadDefaults();
+
+/* 自作の目印。{src:絵, label:文字} を 4つまで持てます */
+let marks=[];
+function loadMarks(){
+  marks=[];
+  try{ const s=localStorage.getItem(MARKS_KEY); if(s)marks=JSON.parse(s)||[]; }catch(e){ marks=[]; }
+  if(!Array.isArray(marks))marks=[];
+  marks=marks.filter(m=>m&&m.src).slice(0,4);
+}
+function saveMarks(){
+  try{ localStorage.setItem(MARKS_KEY,JSON.stringify(marks)); }
+  catch(e){ alert('絵を覚えられませんでした。絵の数を減らすか、小さい絵をお試しください。'); }
+}
+loadMarks();
+/* 自作の目印の絵。読み込めたら描き直します（同じ絵は使い回します） */
+const markImgs={};
+function markImage(src){
+  if(!src)return null;
+  let im=markImgs[src];
+  if(!im){
+    im=new Image();
+    im.onload=function(){ im.ready=true; if(window.redraw)redraw(); };
+    im.src=src;
+    markImgs[src]=im;
+  }
+  return im;
+}
+/* 読み込んだ絵は、大きくても 256px までに縮めてから覚えます
+   （そのままだと、このパソコンに覚えられる量をすぐ超えてしまうため） */
+function shrinkToDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>reject(new Error('読めません'));
+    fr.onload=()=>{
+      const im=new Image();
+      im.onerror=()=>reject(new Error('絵として開けません'));
+      im.onload=()=>{
+        const MAX=256;
+        const s=Math.min(1,MAX/Math.max(im.naturalWidth,im.naturalHeight));
+        const w=Math.max(1,Math.round(im.naturalWidth*s)), h=Math.max(1,Math.round(im.naturalHeight*s));
+        const c=document.createElement('canvas');
+        c.width=w; c.height=h;
+        c.getContext('2d').drawImage(im,0,0,w,h);
+        resolve(c.toDataURL('image/png'));
+      };
+      im.src=fr.result;
+    };
+    fr.readAsDataURL(file);
+  });
+}
 
 /* ===== 文字を入れてもらう小窓 =====
    ブラウザでは、これまでどおり prompt を使います。
@@ -609,7 +745,7 @@ function defaultTail(o){
 }
 async function placePhoto(src,img){
   const im=img||await loadImage(src);
-  const w=Math.round(cv.width/3.4), h=Math.round(w*im.naturalHeight/im.naturalWidth);
+  const w=Math.round(cv.width/3.4*defMul('photo')), h=Math.round(w*im.naturalHeight/im.naturalWidth);
   const c=viewCenter();
   pushUndo();
   const o={type:'photo',img:im,src:src,x:Math.round(c.x-w/2+cascade),y:Math.round(c.y-h/2+cascade),
@@ -885,6 +1021,7 @@ function drawObj(o){
     case 'pin':drawPin(o);break;
     case 'guard':drawGuard(o);break;
     case 'wash':case 'genba':drawStamp(o);break;
+    case 'mark':drawMark(o);break;
     case 'ellipse':drawEllipse(o);break;
     case 'rect':drawRect(o);break;
     case 'text':drawText(o);break;
@@ -1078,6 +1215,25 @@ function drawStamp(o){
   if(im&&im.ready)ctx.drawImage(stampPaint(im,o.color),x+pad,y+pad,s-pad*2,s-pad*2);
   pinLabel(o,guardR(o));
 }
+/* 自作の目印。読み込んだ絵を、そのままの色で白い四角の中に描きます
+   （洗い場・現場のように色で塗りつぶすと、自分の絵の色が消えてしまうため。
+     四角のふちだけは、選んでいる色になります） */
+function drawMark(o){
+  const im=markImage(o.src), s=stampSide(o), x=o.x-s/2, y=o.y-s;
+  const rad=s*0.16, bw=Math.max(1.5,s*0.045), pad=s*0.10;
+  const box=()=>{ ctx.beginPath();
+    if(ctx.roundRect)ctx.roundRect(x,y,s,s,rad); else ctx.rect(x,y,s,s); };
+  box(); ctx.lineWidth=bw*2.6; ctx.strokeStyle='#fff'; ctx.stroke();
+  box(); ctx.fillStyle='#fff'; ctx.fill();
+  box(); ctx.lineWidth=bw; ctx.strokeStyle=o.color; ctx.stroke();
+  if(im&&im.ready&&im.naturalWidth){
+    const inner=s-pad*2;
+    const k=Math.min(inner/im.naturalWidth,inner/im.naturalHeight);
+    const w=im.naturalWidth*k, h=im.naturalHeight*k;
+    ctx.drawImage(im,o.x-w/2,y+s/2-h/2,w,h);
+  }
+  pinLabel(o,guardR(o));
+}
 function drawGuard(o){
   const r=guardR(o), p=pinShape(o,r), cx=p.cx, cy=p.cy;
   ctx.fillStyle='#fff'; ctx.strokeStyle='#fff'; ctx.lineCap='round'; ctx.lineJoin='round';
@@ -1201,7 +1357,7 @@ function selPad(){ return handleSize()*0.4; }
    今までどおり調べます。こうすると、回っていても掴む位置がずれません。 */
 function canRotate(t){
   return t==='text'||t==='photo'||t==='pin'||t==='guard'||t==='wash'||t==='genba'
-       ||t==='ellipse'||t==='rect';
+       ||t==='mark'||t==='ellipse'||t==='rect';
 }
 function rotOf(o){ return (o&&canRotate(o.type)&&o.rot)?o.rot:0; }
 function rotCenter(o){ const b=getBBox(o); return {x:b.x+b.w/2,y:b.y+b.h/2}; }
@@ -1311,7 +1467,7 @@ function getBBox(o){
       const r=guardR(o), lab=o.label?r*1.2:0;
       return {x:o.x-r,y:o.y-r*2.414,w:r*2,h:r*2.414+lab};
     }
-    case 'wash':case 'genba':{          /* 絵のピンは四角なので囲みが違います */
+    case 'wash':case 'genba':case 'mark':{  /* 絵のピンは四角なので囲みが違います */
       const s=stampSide(o), lab=o.label?guardR(o)*1.2:0;
       return {x:o.x-s/2,y:o.y-s,w:s,h:s+lab};
     }
@@ -1343,7 +1499,7 @@ function inBBox(o,p){
 function hitObj(o,p){
   const tol=Math.max(10,12/scaleNow());
   switch(o.type){
-    case 'map':case 'photo':case 'text':case 'guard':case 'wash':case 'genba':return inBBox(o,p);
+    case 'map':case 'photo':case 'text':case 'guard':case 'wash':case 'genba':case 'mark':return inBBox(o,p);
     case 'pin':return Math.hypot(p.x-o.x,p.y-o.y)<=pinR(o)+tol/2;
     case 'ellipse':{
       if(o.rx<1||o.ry<1)return false;
@@ -1561,19 +1717,29 @@ cv.addEventListener('click',e=>{
     redraw();
   }else if(tool==='pin'){
     pushUndo();
-    objects.push({type:'pin',x:p.x,y:p.y,num:nextNum('pin'),mul:1,color:color,alpha:alphaVal()});
+    objects.push({type:'pin',x:p.x,y:p.y,num:nextNum('pin'),mul:defMul('pin'),color:color,alpha:alphaVal()});
     redraw();
+  }else if(markToolIndex(tool)>=0){
+    /* 自作の目印。絵そのものも書き込みに持たせるので、
+       別のパソコンで作業ファイルを開いても、ちゃんと出ます */
+    const m=marks[markToolIndex(tool)];
+    if(m){
+      pushUndo();
+      objects.push({type:'mark',x:p.x,y:p.y,src:m.src,label:m.label||'',
+        mul:defMul('mark'),color:color,alpha:alphaVal()});
+      redraw();
+    }
   }else if(tool==='guard'||tool==='wash'||tool==='genba'){
     pushUndo();
     objects.push({type:tool,x:p.x,y:p.y,
       label:PIN_LABEL[tool],
-      mul:1,color:color,alpha:alphaVal()});
+      mul:defMul(tool),color:color,alpha:alphaVal()});
     redraw();
   }else if(tool==='text'){
     askText('表示する文字を入力してください','この先 入口').then(t=>{
       if(t){
         pushUndo();
-        objects.push({type:'text',x:p.x,y:p.y,text:t,mul:1,color:color,alpha:alphaVal()});
+        objects.push({type:'text',x:p.x,y:p.y,text:t,mul:defMul('text'),color:color,alpha:alphaVal()});
         redraw();
       }
     });
@@ -1590,7 +1756,7 @@ cv.addEventListener('dblclick',e=>{
       askText('文字を変更',o.text).then(t=>{
         if(t!==null&&t!==''){pushUndo();o.text=t;redraw();}
       });
-    }else if(o.type==='guard'||o.type==='wash'||o.type==='genba'){
+    }else if(o.type==='guard'||o.type==='wash'||o.type==='genba'||o.type==='mark'){
       askText('ピンの文字を変更（空欄にすると文字なし）',o.label).then(t=>{
         if(t!==null){pushUndo();o.label=t;redraw();}
       });
@@ -1609,7 +1775,8 @@ window.addEventListener('keydown',e=>{
   const tag=(e.target.tagName||'').toLowerCase();
   if(tag==='input'||tag==='textarea'||tag==='select')return;
   if(e.key==='Escape'){
-    if(!preview.hidden){closePreview();}
+    if(!settingsEl.hidden){closeSettings();}
+    else if(!preview.hidden){closePreview();}
     else if(drawing){drawing=null;redraw();} else if(selected){selected=null;redraw();}
   }else if(e.key==='Enter'){ if(isPoly(tool)&&drawing)finalizeArrow(); }
   else if(e.key==='Delete'||e.key==='Backspace'){ deleteSelected(); }
@@ -2128,31 +2295,105 @@ window.addEventListener('resize',fitToolbar);
    次に開いたときも同じ並びで出します。「↺ 並びを戻す」ではじめの並びに戻ります。 */
 const BAR_LAYOUT_KEY='genba.toolbarLayout';
 const verEl=document.getElementById('ver');
+const floatLayer=document.getElementById('floatLayer');
 /* はじめの並び。data-g の名前を、上の段・下の段の順に控えておきます */
-const defaultLayout=barEls.map(b=>Array.from(b.querySelectorAll(':scope>.grp')).map(g=>g.dataset.g));
+const defaultLayout={
+  bars:barEls.map(b=>Array.from(b.querySelectorAll(':scope>.grp')).map(g=>g.dataset.g)),
+  floats:{}
+};
 
 /* まとまりの名前が「取っ手」だと分かるように、説明を付けます */
-for(const lbl of toolbarEl.querySelectorAll('.grp>.lbl')){
+function labelTitle(lbl){
   lbl.title='「'+lbl.textContent.trim()+'」のまとまりです。ここをマウスでつまむと、'
-           +'上の段・下の段の好きな場所へ動かせます（並びは、このパソコンに覚えます）';
+           +'上の段・下の段の好きな場所へ動かせます。ツールバーの外（用紙の上）へ持っていくと、'
+           +'その場に浮かせておけます（並びは、このパソコンに覚えます）';
 }
+for(const lbl of toolbarEl.querySelectorAll('.grp>.lbl')) labelTitle(lbl);
 
 function allGroups(){
   const m={};
-  for(const b of barEls) for(const g of b.querySelectorAll(':scope>.grp')) m[g.dataset.g]=g;
+  for(const g of document.querySelectorAll('.grp[data-g]')) m[g.dataset.g]=g;
   return m;
 }
 function tidyBars(){
   /* バージョン表示は、いつも上の段のいちばん右に置きます */
   if(verEl&&verEl.nextElementSibling!==null) barEls[0].appendChild(verEl);
 }
+function isFloating(g){ return g.parentElement===floatLayer; }
+
+/* ===== 浮かして使う =====
+   ツールバーの外へ持っていくと、そのまとまりだけ用紙の上に浮かびます。
+   浮かんでいる間は「⤴」でツールバーへ戻せます */
+function dockBtnFor(g){
+  let b=g.querySelector(':scope>.dock');
+  if(!b){
+    b=document.createElement('button');
+    b.className='dock';
+    b.textContent='⤴';
+    b.title='このまとまりを、ツールバーへ戻します';
+    b.addEventListener('click',ev=>{
+      ev.stopPropagation();
+      dockGroup(g,barEls[0],Infinity);
+      saveLayout(); fitToolbar();
+      setHint('「'+g.querySelector('.lbl').textContent.trim()+'」をツールバーへ戻しました。');
+    });
+    g.appendChild(b);
+  }
+  return b;
+}
+function clampFloat(g,x,y){
+  const w=g.offsetWidth||120, h=g.offsetHeight||30;
+  return {x:Math.max(2,Math.min(x,Math.max(2,window.innerWidth-w-2))),
+          y:Math.max(2,Math.min(y,Math.max(2,window.innerHeight-h-2)))};
+}
+function setFloatPos(g,x,y){
+  const p=clampFloat(g,x,y);
+  g.style.left=Math.round(p.x)+'px';
+  g.style.top=Math.round(p.y)+'px';
+}
+function floatGroup(g,x,y){
+  if(!isFloating(g)){
+    floatLayer.appendChild(g);
+    dockBtnFor(g);
+  }
+  setFloatPos(g,x,y);
+}
+function dockGroup(g,bar,x){
+  if(isFloating(g)){
+    const b=g.querySelector(':scope>.dock'); if(b)b.remove();
+    g.style.left=''; g.style.top='';
+  }
+  placeIntoBar(bar||barEls[0],g,x==null?Infinity:x);
+}
+function placeIntoBar(bar,g,x){
+  const others=Array.from(bar.querySelectorAll(':scope>.grp')).filter(o=>o!==g);
+  let before=null;
+  for(const o of others){
+    const r=o.getBoundingClientRect();
+    if(x<r.left+r.width/2){ before=o; break; }
+  }
+  if(before) bar.insertBefore(g,before);
+  else bar.appendChild(g);
+  tidyBars();
+}
+
 function saveLayout(){
-  const cur=barEls.map(b=>Array.from(b.querySelectorAll(':scope>.grp')).map(g=>g.dataset.g));
+  const cur={
+    bars:barEls.map(b=>Array.from(b.querySelectorAll(':scope>.grp')).map(g=>g.dataset.g)),
+    floats:{}
+  };
+  for(const g of floatLayer.querySelectorAll(':scope>.grp')){
+    cur.floats[g.dataset.g]={x:parseFloat(g.style.left)||0,y:parseFloat(g.style.top)||0};
+  }
   try{ localStorage.setItem(BAR_LAYOUT_KEY,JSON.stringify(cur)); }catch(e){}
 }
 function applyLayout(layout){
+  /* 古い版で覚えた並び（段のならびだけの形）も、そのまま読めるようにします */
+  const bars=Array.isArray(layout)?layout:(layout&&layout.bars)||[];
+  const floats=(layout&&!Array.isArray(layout)&&layout.floats)||{};
   const map=allGroups(),used={};
-  layout.forEach((names,i)=>{
+  for(const g of Object.values(map)) if(isFloating(g)) dockGroup(g,barEls[0],Infinity);
+  bars.forEach((names,i)=>{
     const bar=barEls[i];
     if(!bar) return;
     for(const n of names){
@@ -2164,22 +2405,31 @@ function applyLayout(layout){
   });
   /* 覚えた並びに入っていないまとまり（アプリを新しくして増えた分）は、
      もとの段のうしろに付け足します。こうすると、新しい道具が消えません */
-  defaultLayout.forEach((names,i)=>{
+  defaultLayout.bars.forEach((names,i)=>{
     for(const n of names){
       const g=map[n];
       if(g&&!used[n]){ used[n]=1; barEls[i].appendChild(g); }
     }
   });
   tidyBars();
+  for(const n of Object.keys(floats)){
+    const g=map[n];
+    if(g) floatGroup(g,floats[n].x,floats[n].y);
+  }
 }
 (function restoreLayout(){
   let saved=null;
   try{ saved=JSON.parse(localStorage.getItem(BAR_LAYOUT_KEY)||'null'); }catch(e){}
-  if(Array.isArray(saved)&&saved.length) applyLayout(saved);
+  if(saved) applyLayout(saved);
 })();
 
 /* つまんで動かしている間は、指（マウス）の場所を見て、その場でならべ替えます */
-let movingGrp=null;
+let movingGrp=null, grabOff=null;
+function nearBar(y){
+  /* ツールバーの帯（すこし余裕をみて）の中にいるかどうか */
+  const r=toolbarEl.getBoundingClientRect();
+  return y>=r.top-16&&y<=r.bottom+16;
+}
 function barUnder(y){
   let best=null,bestD=Infinity;
   for(const b of barEls){
@@ -2189,17 +2439,6 @@ function barUnder(y){
   }
   return best;                                     // 段から少し外れていても、近いほうの段に入れます
 }
-function placeInto(bar,x){
-  const others=Array.from(bar.querySelectorAll(':scope>.grp')).filter(g=>g!==movingGrp);
-  let before=null;
-  for(const g of others){
-    const r=g.getBoundingClientRect();
-    if(x<r.left+r.width/2){ before=g; break; }
-  }
-  if(before) bar.insertBefore(movingGrp,before);
-  else bar.appendChild(movingGrp);
-  tidyBars();
-}
 function edgeScroll(bar,x){
   /* 段が横にすべる状態のときは、はしに寄せると自動でスクロールします */
   const r=bar.getBoundingClientRect();
@@ -2207,39 +2446,60 @@ function edgeScroll(bar,x){
   if(x<r.left+38) bar.scrollLeft-=14;
   else if(x>r.right-38) bar.scrollLeft+=14;
 }
-toolbarEl.addEventListener('pointerdown',e=>{
+document.addEventListener('pointerdown',e=>{
   const lbl=e.target.closest('.grp>.lbl');
   if(!lbl) return;
   if(e.pointerType==='mouse'&&e.button!==0) return;
-  movingGrp=lbl.parentElement;
-  movingGrp.classList.add('moving');
+  const g=lbl.parentElement;
+  if(!g.dataset.g) return;
+  movingGrp=g;
+  const r=g.getBoundingClientRect();
+  grabOff={x:e.clientX-r.left,y:e.clientY-r.top};
+  g.classList.add('moving');
   document.body.classList.add('barMoving');
   try{ lbl.setPointerCapture(e.pointerId); }catch(err){}
   e.preventDefault();
 });
-toolbarEl.addEventListener('pointermove',e=>{
+window.addEventListener('pointermove',e=>{
   if(!movingGrp) return;
-  const bar=barUnder(e.clientY);
-  if(bar){ edgeScroll(bar,e.clientX); placeInto(bar,e.clientX); }
+  if(nearBar(e.clientY)){
+    const bar=barUnder(e.clientY);
+    if(bar){
+      if(isFloating(movingGrp)) dockGroup(movingGrp,bar,e.clientX);
+      edgeScroll(bar,e.clientX);
+      placeIntoBar(bar,movingGrp,e.clientX);
+    }
+  }else{
+    floatGroup(movingGrp,e.clientX-grabOff.x,e.clientY-grabOff.y);
+  }
   e.preventDefault();
 });
 function endGrpDrag(){
   if(!movingGrp) return;
+  const floated=isFloating(movingGrp);
+  const name=movingGrp.querySelector('.lbl').textContent.trim();
   movingGrp.classList.remove('moving');
   document.body.classList.remove('barMoving');
-  movingGrp=null;
+  movingGrp=null; grabOff=null;
   saveLayout();
   fitToolbar();                                    // 並びが変わると幅も変わるので、測り直します
-  setHint('ツールバーの並びを変えました。「↺ 並びを戻す」で、はじめの並びに戻せます。');
+  setHint(floated
+    ? '「'+name+'」を浮かせました。名前をつまめば動かせます。「⤴」でツールバーへ戻せます。'
+    : 'ツールバーの並びを変えました。「↺ 並びを戻す」で、はじめの並びに戻せます。');
 }
 window.addEventListener('pointerup',endGrpDrag);
 window.addEventListener('pointercancel',endGrpDrag);
+/* 窓の大きさが変わっても、浮かんだまとまりが画面の外へ出ないようにします */
+window.addEventListener('resize',()=>{
+  for(const g of floatLayer.querySelectorAll(':scope>.grp'))
+    setFloatPos(g,parseFloat(g.style.left)||0,parseFloat(g.style.top)||0);
+});
 
 document.getElementById('btnResetBar').addEventListener('click',()=>{
   applyLayout(defaultLayout);
   try{ localStorage.removeItem(BAR_LAYOUT_KEY); }catch(e){}
   fitToolbar();
-  setHint('ツールバーの並びを、はじめの並びに戻しました。');
+  setHint('ツールバーの並びを、はじめの並びに戻しました（浮かせたまとまりも戻します）。');
 });
 
 fitToolbar();
@@ -2273,6 +2533,148 @@ printMarginSel.addEventListener('change',()=>{
     ? '印刷の余白を '+printMarginMM+'mm にしました（次からも、この余白で印刷します）。用紙の端が切れるときは、余白を大きくしてください。'
     : '印刷の余白を「なし」にしました（次からも、この余白で印刷します）。プリンターによっては、用紙の端（現場名など）が切れることがあります。');
 });
+
+/* ===== 設定の画面 ===== */
+/* 「mark0」〜「mark3」が自作の目印の道具です。何番めかを返します（違うときは -1） */
+function markToolIndex(t){
+  return (typeof t==='string'&&/^mark[0-3]$/.test(t))?parseInt(t.slice(4),10):-1;
+}
+/* 「目印」のまとまりに、自作の目印のボタンを出し入れします */
+function renderMarkTools(){
+  const grp=document.querySelector('.grp[data-g="pins"]');
+  if(!grp)return;
+  for(const b of grp.querySelectorAll('button.markTool')) b.remove();
+  marks.forEach((m,i)=>{
+    const name=m.label||('目印'+(i+1));
+    const b=document.createElement('button');
+    b.className='tool markTool';
+    b.dataset.tool='mark'+i;
+    b.title='自作の目印「'+name+'」を置きます（設定で絵と名前を変えられます）';
+    const im=document.createElement('img'); im.src=m.src; im.alt='';
+    b.appendChild(im);
+    b.appendChild(document.createTextNode(name));
+    b.addEventListener('click',()=>setTool(b.dataset.tool));
+    grp.appendChild(b);
+    HINTS[b.dataset.tool]='クリックした場所に、自作の目印「'+name+'」を置きます。ダブルクリックで文字を変更できます。';
+  });
+  /* 選んでいた自作の目印が消えたときは、「選択」に戻します */
+  if(markToolIndex(tool)>=0&&!marks[markToolIndex(tool)]) setTool('select');
+  fitToolbar();
+}
+
+const settingsEl=document.getElementById('settings');
+const sizeRowsEl=document.getElementById('sizeRows');
+const markSlotsEl=document.getElementById('markSlots');
+const fileMark=document.getElementById('fileMark');
+let markSlotTarget=-1;
+
+/* いちばん近い選択肢を選びます（覚えた値が選択肢に無いときのため） */
+function nearestValue(list,v){
+  let best=list[0];
+  for(const n of list) if(Math.abs(n-v)<Math.abs(best-v)) best=n;
+  return best;
+}
+/* 「線の太さ」は、ツールバーの「太さ」と同じ選択肢・同じ値を使います */
+function applyLineDefault(){
+  if(defaults.line!=null){ thickSel.value=nearestOpt(thickSel,defaults.line); }
+}
+function buildSizeRows(){
+  sizeRowsEl.innerHTML='';
+  for(const r of SIZE_ROWS){
+    const row=document.createElement('div'); row.className='setRow';
+    const nm=document.createElement('span'); nm.textContent=r.name;
+    const sel=document.createElement('select');
+    if(r.key==='line'){
+      for(const op of thickSel.options){
+        const o=document.createElement('option'); o.value=op.value; o.textContent=op.text;
+        sel.appendChild(o);
+      }
+      sel.value=nearestOpt(thickSel,defaults.line!=null?defaults.line:thickMul());
+    }else{
+      for(const [v,label] of SIZE_OPTS){
+        const o=document.createElement('option'); o.value=String(v); o.textContent=label;
+        sel.appendChild(o);
+      }
+      sel.value=String(nearestValue(SIZE_OPTS.map(s=>s[0]),defMul(r.key)));
+    }
+    sel.addEventListener('change',()=>{
+      defaults[r.key]=parseFloat(sel.value)||1;
+      saveDefaults();
+      if(r.key==='line')applyLineDefault();
+      setHint(r.name+' を「'+sel.options[sel.selectedIndex].text+'」にしました（次に置くものから、この大きさになります）。');
+    });
+    row.appendChild(nm); row.appendChild(sel);
+    sizeRowsEl.appendChild(row);
+  }
+}
+function buildMarkSlots(){
+  markSlotsEl.innerHTML='';
+  for(let i=0;i<4;i++){
+    const m=marks[i];
+    const row=document.createElement('div'); row.className='mkSlot';
+    const th=document.createElement('div'); th.className='mkThumb';
+    if(m){ const im=document.createElement('img'); im.src=m.src; im.alt=''; th.appendChild(im); }
+    else th.textContent='なし';
+    const nameIn=document.createElement('input');
+    nameIn.className='mkName';
+    nameIn.placeholder=m?'名前（例：詰所）':'（絵を選ぶと使えます）';
+    nameIn.value=m?(m.label||''):'';
+    nameIn.disabled=!m;
+    nameIn.addEventListener('change',()=>{
+      if(!marks[i])return;
+      marks[i].label=nameIn.value.trim();
+      saveMarks(); renderMarkTools(); redraw();
+    });
+    const pick=document.createElement('button');
+    pick.textContent=m?'絵を変える':'絵を選ぶ';
+    /* 空きは、いちばん上の1つだけ選べるようにします（間が空かないように） */
+    pick.disabled=!m&&i!==marks.length;
+    pick.onclick=()=>{ markSlotTarget=i; fileMark.value=''; fileMark.click(); };
+    const del=document.createElement('button');
+    del.textContent='消す'; del.disabled=!m;
+    del.onclick=()=>{
+      if(!marks[i])return;
+      if(!confirm('自作の目印「'+(marks[i].label||('目印'+(i+1)))+'」を消しますか？\n（用紙にすでに置いたものは、そのまま残ります）'))return;
+      marks.splice(i,1);
+      saveMarks(); buildMarkSlots(); renderMarkTools(); redraw();
+    };
+    row.appendChild(th); row.appendChild(nameIn); row.appendChild(pick); row.appendChild(del);
+    markSlotsEl.appendChild(row);
+  }
+}
+fileMark.addEventListener('change',async()=>{
+  const f=fileMark.files&&fileMark.files[0];
+  fileMark.value='';
+  if(!f||markSlotTarget<0)return;
+  try{
+    const src=await shrinkToDataURL(f);
+    const auto=f.name.replace(/\.[^.]+$/,'').slice(0,10);
+    if(marks[markSlotTarget]) marks[markSlotTarget].src=src;
+    else if(markSlotTarget===marks.length&&marks.length<4) marks.push({src:src,label:auto});
+    else return;
+    if(!marks[markSlotTarget].label) marks[markSlotTarget].label=auto;
+    saveMarks(); buildMarkSlots(); renderMarkTools(); redraw();
+    setHint('自作の目印を読み込みました。「目印」のまとまりにボタンが増えています。');
+  }catch(err){
+    alert('この絵は読み込めませんでした。PNG か JPG をお試しください。');
+  }
+});
+function openSettings(){
+  buildSizeRows(); buildMarkSlots();
+  settingsEl.hidden=false;
+}
+function closeSettings(){ settingsEl.hidden=true; setHint(); }
+document.getElementById('btnSettings').onclick=openSettings;
+document.getElementById('btnSetClose').onclick=closeSettings;
+document.getElementById('btnSetOk').onclick=closeSettings;
+document.getElementById('btnSetReset').onclick=()=>{
+  for(const r of SIZE_ROWS) delete defaults[r.key];
+  saveDefaults(); buildSizeRows();
+  setHint('道具のはじめの大きさを、すべて「標準」に戻しました。');
+};
+settingsEl.addEventListener('click',e=>{ if(e.target===settingsEl)closeSettings(); });
+applyLineDefault();
+renderMarkTools();
 
 applyPageSize();
 setTool('select');
