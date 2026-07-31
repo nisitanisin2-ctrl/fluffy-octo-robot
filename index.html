@@ -115,6 +115,9 @@ html:not(.desktop) footer{display:none}
 #preview[hidden]{display:none}
 #previewBar{flex:none;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;background:#2b3038;color:#fff}
 #previewBar .lead{margin-right:auto;font-size:13px;color:#cfd6df}
+/* プレビューの中に置いた「ふちの余白」。ここで決めると、すぐ見た目に出ます */
+#previewBar .pvField{display:flex;align-items:center;gap:6px;font-size:13px;color:#e6ebf2;white-space:nowrap;cursor:pointer}
+#previewBar .pvField select{cursor:pointer}
 #previewPaper{flex:1;overflow:auto;display:flex;align-items:flex-start;justify-content:center;padding:16px}
 #previewImg{max-width:100%;height:auto;background:#fff;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 @media print{
@@ -151,15 +154,7 @@ html:not(.desktop) footer{display:none}
       <span class="lbl">仕上げ</span>
       <button id="btnPng">⬇ 画像で保存</button>
       <button id="btnPrint">🖨 印刷</button>
-      <select id="printMargin" title="用紙のふちに空ける余白です。プリンターは紙の端まで印刷できないので、「なし」にすると現場名など端の部分が切れることがあります。選んだ余白は、このパソコンに覚えます">
-        <option value="0">余白 なし</option>
-        <option value="3">余白 3mm</option>
-        <option value="5">余白 5mm</option>
-        <option value="8">余白 8mm</option>
-        <option value="10">余白 10mm</option>
-        <option value="15">余白 15mm</option>
-      </select>
-      <button id="btnPreview" title="印刷したときの見た目を、印刷する前に確かめられます">👁 プレビュー</button>
+      <button id="btnPreview" title="印刷したときの見た目を、印刷する前に確かめられます。用紙のふちの余白も、この画面で決められます">👁 プレビュー</button>
     </div>
     <div class="grp" data-g="pins">
       <span class="lbl">目印</span>
@@ -340,7 +335,18 @@ html:not(.desktop) footer{display:none}
 </footer>
 <div id="preview" hidden>
   <div id="previewBar">
-    <span class="lead">印刷したときの見た目です。青と橙の点線や選択の枠は出ません。</span>
+    <span class="lead">印刷したときの見た目です。青と橙の点線や選択の枠は出ません。端が切れるときは「ふちの余白」を大きくしてください。</span>
+    <label class="pvField" title="用紙のふちに空ける余白です。プリンターは紙の端まで印刷できないので、「なし」にすると現場名など端の部分が切れることがあります。選んだ余白は、このパソコンに覚えます">
+      <span>ふちの余白</span>
+      <select id="printMargin">
+        <option value="0">なし</option>
+        <option value="3">3mm</option>
+        <option value="5">5mm</option>
+        <option value="8">8mm</option>
+        <option value="10">10mm</option>
+        <option value="15">15mm</option>
+      </select>
+    </label>
     <button id="btnPreviewPrint" class="primary">🖨 このまま印刷</button>
     <button id="btnPreviewClose">✕ 閉じる</button>
   </div>
@@ -355,7 +361,7 @@ html:not(.desktop) footer{display:none}
    アプリを直したら、この2行を書き換えてください。
    画面右下に表示され、service-worker.js の CACHE 名とそろえておくと
    インストール済みの人にも確実に新しい版が届きます。 */
-const APP_VERSION='3.9';
+const APP_VERSION='4.0';
 const APP_DATE='2026-07-31';
 
 const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
@@ -398,13 +404,13 @@ let color='#e60012';
 let base=11;
 let userZoom=1, fitScale=1;
 let drawing=null, cursorPos=null, selected=null;
-let dragMode=null, dragStart=null, dragIndex=-1, resizeRef=null;
+let dragMode=null, dragStart=null, dragIndex=-1, resizeRef=null, rotRef=null;
 let preSnap=null, movedInDrag=false;
 let tempShape=null, cascade=0, pasteTarget='map', exporting=false;
 let showPlaceholder=true;             // 用紙の中央に出す「ここに地図を貼り付けます」の案内
 
 const HINTS={
- select:'書き込みをクリックで選択、ドラッグで移動。右下の□で大きさ変更。矢印は角の□で形を直せます。下スペースの境目は、中央のつまみを上下にドラッグしても変えられます。',
+ select:'書き込みをクリックで選択、ドラッグで移動。右下の□で大きさ変更、上の○で向きを変えられます（まっすぐ付近では自動でぴったりに直ります）。矢印は角の□で形を直せます。下スペースの境目は、中央のつまみを上下にドラッグしても変えられます。',
  arrow:'道に沿ってクリックで点を追加 → ダブルクリック（または右クリック／Enter）で矢印を確定。線の太さは「太さ」、矢印の先（矢じり）の大きさは、すぐ右の「先」で選べます。曲がり角は、はじめからなめらかなカーブになります（「線の角丸」のチェックを外すと角ばります）。Escで中止。',
  line:'クリックで点を追加 → ダブルクリック（または右クリック／Enter）で線を確定。矢印の付かない線です。左の「線の種類」で実線・破線・点線などを選べます。Escで中止。',
  road:'道の真ん中をクリックしていくと、2本の線（2重線）で道を描きます → ダブルクリック（または右クリック／Enter）で確定。線の太さは「太さ」、線と線の間は「道幅」で選べます。曲がり角は、はじめからなめらかなカーブになります（「線の角丸」のチェックを外すと角ばります）。Escで中止。',
@@ -870,6 +876,8 @@ function drawMapPlaceholder(r){
 function drawObj(o){
   ctx.save();
   ctx.globalAlpha=(o.alpha==null?1:o.alpha);
+  const a=rotOf(o);
+  if(a){ const c=rotCenter(o); ctx.translate(c.x,c.y); ctx.rotate(a); ctx.translate(-c.x,-c.y); }
   switch(o.type){
     case 'arrow':drawArrow(o);break;
     case 'line':drawLine(o);break;
@@ -1183,6 +1191,47 @@ function drawPhoto(o){
 /* ---------- 選択とハンドル ---------- */
 function handleSize(){ return Math.max(14,18/scaleNow()); }
 function selPad(){ return handleSize()*0.4; }
+
+/* ===== 向き（回転） =====
+   囲みの上に出る ○ をドラッグすると、その書き込みを回せます。角度は o.rot
+   （ラジアン）に持ち、囲みの真ん中を軸にします。□ は今までどおり大きさだけです。
+
+   絵は ctx を回して描くだけなので、drawPin などの中身はさわっていません。
+   当たり判定は逆に、指の場所を回す前の場所へ戻して（toLocal）から、
+   今までどおり調べます。こうすると、回っていても掴む位置がずれません。 */
+function canRotate(t){
+  return t==='text'||t==='photo'||t==='pin'||t==='guard'||t==='wash'||t==='genba'
+       ||t==='ellipse'||t==='rect';
+}
+function rotOf(o){ return (o&&canRotate(o.type)&&o.rot)?o.rot:0; }
+function rotCenter(o){ const b=getBBox(o); return {x:b.x+b.w/2,y:b.y+b.h/2}; }
+function spinPt(p,c,a){
+  const s=Math.sin(a),co=Math.cos(a),dx=p.x-c.x,dy=p.y-c.y;
+  return {x:c.x+dx*co-dy*s,y:c.y+dx*s+dy*co};
+}
+/* 画面上の場所 → その書き込みを回す前の場所 */
+function toLocal(o,p){
+  const a=rotOf(o); if(!a)return p;
+  return spinPt(p,rotCenter(o),-a);
+}
+/* 回すための ○ の場所（回す前の座標）。囲みの上にすこし離して出します。
+   用紙の上のほうにある書き込みでは、○が画面の外に出て掴めなくなるので、
+   そのときだけ囲みの下に付け替えます */
+function rotHandlePos(o){
+  if(!canRotate(o.type))return null;
+  const b=getBBox(o), d=selPad()+handleSize()*1.7;
+  const up=b.y-d;
+  return (up>handleSize())
+    ? {x:b.x+b.w/2,y:up,below:false}
+    : {x:b.x+b.w/2,y:b.y+b.h+d,below:true};
+}
+/* まっすぐ（0・90・180・270度）の近くでは、ぴったりに直します */
+function snapAngle(a){
+  const TWO=Math.PI*2,Q=Math.PI/2,TOL=5*Math.PI/180;
+  a=((a%TWO)+TWO)%TWO;
+  const k=Math.round(a/Q)*Q;
+  return (Math.abs(a-k)<TOL)?(k%TWO):a;
+}
 function handlePos(o){
   if(isPoly(o.type))return null;
   const b=getBBox(o), d=selPad()+handleSize()*0.5, m=handleSize()*0.6;
@@ -1202,15 +1251,38 @@ function drawHandle(x,y,fill){
   ctx.fillRect(x-hs/2,y-hs/2,hs,hs);
   ctx.strokeRect(x-hs/2,y-hs/2,hs,hs);
 }
+function drawRotHandle(x,y){
+  const hs=handleSize(), lw=Math.max(2,3/scaleNow());
+  ctx.setLineDash([]);
+  ctx.fillStyle='#fff'; ctx.strokeStyle='#1a73e8'; ctx.lineWidth=lw;
+  ctx.beginPath(); ctx.arc(x,y,hs*0.55,0,7); ctx.fill(); ctx.stroke();
+  /* 中に小さな回転の矢を入れて、回すつまみだと分かるようにします */
+  const r=hs*0.26;
+  ctx.beginPath(); ctx.arc(x,y,r,Math.PI*0.75,Math.PI*0.25); ctx.lineWidth=Math.max(1.5,lw*0.7); ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(x+r*0.95,y-r*0.35); ctx.lineTo(x+r*1.75,y-r*0.1); ctx.lineTo(x+r*0.75,y+r*0.6);
+  ctx.closePath(); ctx.fillStyle='#1a73e8'; ctx.fill();
+}
 function drawSelection(o){
   const b=getBBox(o); if(!b)return;
   const lw=Math.max(2,3/scaleNow()), pad=selPad();
   ctx.save();
   ctx.globalAlpha=1;
+  /* 回している書き込みは、囲みとつまみも同じだけ回して出します */
+  const a=rotOf(o);
+  if(a){ const c=rotCenter(o); ctx.translate(c.x,c.y); ctx.rotate(a); ctx.translate(-c.x,-c.y); }
   ctx.strokeStyle='#1a73e8'; ctx.lineWidth=lw; ctx.setLineDash([4*lw,3*lw]);
   ctx.strokeRect(b.x-pad,b.y-pad,b.w+pad*2,b.h+pad*2);
   if(isPoly(o.type)){ o.points.forEach(p=>drawHandle(p.x,p.y)); }
   else{
+    const rp=rotHandlePos(o);
+    if(rp){                                        // ○ と、囲みへつなぐ細い線
+      const edge=rp.below?(b.y+b.h+pad):(b.y-pad);
+      const near=rp.y+(rp.below?-1:1)*handleSize()*0.55;
+      ctx.setLineDash([]); ctx.strokeStyle='#1a73e8'; ctx.lineWidth=lw;
+      ctx.beginPath(); ctx.moveTo(rp.x,edge); ctx.lineTo(rp.x,near); ctx.stroke();
+      drawRotHandle(rp.x,rp.y);
+    }
     const h=handlePos(o); if(h)drawHandle(h.x,h.y);
     const t=tailPos(o); if(t)drawHandle(t.x,t.y,'#ffe08a');
   }
@@ -1305,16 +1377,19 @@ function hitTest(p){
         if(Math.abs(p.x-q.x)<=tol&&Math.abs(p.y-q.y)<=tol)return {obj:selected,handle:'pt',index:i};
       }
     }else{
+      const q=toLocal(selected,p);              // 回す前の場所に直してから調べます
+      const rp=rotHandlePos(selected);
+      if(rp&&Math.hypot(q.x-rp.x,q.y-rp.y)<=tol*1.2)return {obj:selected,handle:'rot'};
       const tp=tailPos(selected);
-      if(tp&&Math.abs(p.x-tp.x)<=tol&&Math.abs(p.y-tp.y)<=tol)return {obj:selected,handle:'tail'};
+      if(tp&&Math.abs(q.x-tp.x)<=tol&&Math.abs(q.y-tp.y)<=tol)return {obj:selected,handle:'tail'};
       const h=handlePos(selected);
-      if(h&&Math.abs(p.x-h.x)<=tol&&Math.abs(p.y-h.y)<=tol)return {obj:selected,handle:'resize'};
+      if(h&&Math.abs(q.x-h.x)<=tol&&Math.abs(q.y-h.y)<=tol)return {obj:selected,handle:'resize'};
     }
   }
   for(let i=objects.length-1;i>=0;i--){
     const o=objects[i];
     if(o.type==='map'&&o!==selected)continue;   // 地図は「調整」で選んだときだけ掴める
-    if(hitObj(o,p))return {obj:o,handle:null};
+    if(hitObj(o,toLocal(o,p)))return {obj:o,handle:null};
   }
   return {obj:null,handle:null};
 }
@@ -1382,11 +1457,20 @@ cv.addEventListener('pointerdown',e=>{
       selected=h.obj; dragStart=p;
       if(h.handle==='pt'){ dragMode='pt'; dragIndex=h.index; }
       else if(h.handle==='tail'){ dragMode='tail'; }
+      else if(h.handle==='rot'){
+        dragMode='rot';
+        const c=rotCenter(selected);
+        rotRef={cx:c.x,cy:c.y,a0:Math.atan2(p.y-c.y,p.x-c.x),r0:rotOf(selected)};
+        setHint('ドラッグで向きを変えます。まっすぐ（0・90・180・270度）の近くでは、自動でぴったりに直ります。');
+      }
       else if(h.handle==='resize'){
         dragMode='resize';
+        /* 回している書き込みでも同じ手ざわりになるよう、
+           指の場所を回す前に直してから、これまでどおりの計算をします */
+        const q=toLocal(selected,p);
         const a=anchorOf(selected), hp=handlePos(selected);
         resizeRef={mul:selected.mul,w:selected.w,h:selected.h,rx:selected.rx,ry:selected.ry,
-                   px:p.x,py:p.y,gx:p.x-hp.x,gy:p.y-hp.y,
+                   px:q.x,py:q.y,gx:q.x-hp.x,gy:q.y-hp.y,
                    dist:Math.max(1,Math.hypot(hp.x-a.x,hp.y-a.y))};
       }else dragMode='move';
       capturePointer(e); syncStyleUI();
@@ -1417,21 +1501,30 @@ cv.addEventListener('pointermove',e=>{
   }else if(dragMode==='pt'&&selected){
     snap(); selected.points[dragIndex]={x:p.x,y:p.y}; redraw();
   }else if(dragMode==='tail'&&selected){
-    snap(); selected.tx=p.x; selected.ty=p.y; redraw();
+    /* 出っぱりの先も、書き込みといっしょに回ります。
+       ですから、しまうのは「回す前」の場所です */
+    const q=toLocal(selected,p);
+    snap(); selected.tx=q.x; selected.ty=q.y; redraw();
+  }else if(dragMode==='rot'&&selected){
+    snap();
+    const r=rotRef;
+    selected.rot=snapAngle(r.r0+(Math.atan2(p.y-r.cy,p.x-r.cx)-r.a0));
+    redraw();
   }else if(dragMode==='resize'&&selected){
     snap();
     const o=selected, r=resizeRef;
+    const q=toLocal(o,p);                        // 回している書き込みは、回す前の場所で計算します
     if(o.type==='photo'||o.type==='map'){
-      const w=Math.max(40,r.w+(p.x-r.px));
+      const w=Math.max(40,r.w+(q.x-r.px));
       o.w=w; o.h=w*o.img.naturalHeight/o.img.naturalWidth;
       if(o.type==='map')updateMapNote();
     }else if(o.type==='ellipse'){
-      o.rx=Math.max(6,r.rx+(p.x-r.px)); o.ry=Math.max(6,r.ry+(p.y-r.py));
+      o.rx=Math.max(6,r.rx+(q.x-r.px)); o.ry=Math.max(6,r.ry+(q.y-r.py));
     }else if(o.type==='rect'){
-      o.w=Math.max(10,r.w+(p.x-r.px)); o.h=Math.max(10,r.h+(p.y-r.py));
+      o.w=Math.max(10,r.w+(q.x-r.px)); o.h=Math.max(10,r.h+(q.y-r.py));
     }else{
       const a=anchorOf(o);
-      const d=Math.hypot(p.x-r.gx-a.x,p.y-r.gy-a.y);
+      const d=Math.hypot(q.x-r.gx-a.x,q.y-r.gy-a.y);
       o.mul=Math.min(10,Math.max(0.1,r.mul*d/r.dist));
     }
     redraw();
@@ -1710,6 +1803,7 @@ document.getElementById('btnArrange').onclick=()=>{
   let x=(cv.width-totalW)/2;
   for(const v of sized){
     v.o.w=v.w; v.o.h=v.h; v.o.x=x; v.o.y=top+(availH-v.h)/2;
+    v.o.rot=0;                                   // 並べるときは、傾きも元に戻します
     x+=v.w+pad;
   }
   selected=null; redraw();
@@ -1754,16 +1848,36 @@ document.getElementById('btnPrint').onclick=()=>{
   renderClean();
   window.print();
   setTimeout(redraw,300);
-  setHint('印刷の画面では、「余白」は「既定」のままにしてください（アプリ側の「余白 '
-    +(printMarginMM>0?printMarginMM+'mm':'なし')+'」が使われます）。端が切れるときは、この余白を大きくしてください。');
+  setHint('印刷の画面では、「余白」は「既定」のままにしてください（アプリ側の「ふちの余白 '
+    +(printMarginMM>0?printMarginMM+'mm':'なし')+'」が使われます）。端が切れるときは、［👁 プレビュー］を開いて「ふちの余白」を大きくしてください。');
 };
 /* ---------- 印刷プレビュー ---------- */
 /* 印刷と同じ描き方（renderClean）で用紙を1枚の絵にして、画面いっぱいに映します */
-function openPreview(){
+/* 映している用紙を作り直します（余白を変えたときにも使います）。
+   ふちの余白を空けると、印刷では絵がそのぶん小さくなって紙の真ん中に来ます。
+   プレビューでも同じように、白いふちを付けた絵にして映します
+   （こうしないと、余白を変えても見た目が変わらず、決めようがありません） */
+function refreshPreview(){
   renderClean();
-  previewImg.src=cv.toDataURL('image/png');
-  preview.hidden=false;
+  const m=Math.max(0,Math.min(20,printMarginMM));
+  if(m<=0){
+    previewImg.src=cv.toDataURL('image/png');
+  }else{
+    const pw=pageWmm(), ph=pageHmm();
+    const s=Math.min((pw-m*2)/pw,(ph-m*2)/ph);   // 印刷と同じ縮め方
+    const c=document.createElement('canvas');
+    c.width=cv.width; c.height=cv.height;
+    const g=c.getContext('2d');
+    g.fillStyle='#fff'; g.fillRect(0,0,c.width,c.height);
+    const w=cv.width*s, h=cv.height*s;
+    g.drawImage(cv,(c.width-w)/2,(c.height-h)/2,w,h);
+    previewImg.src=c.toDataURL('image/png');
+  }
   redraw();
+}
+function openPreview(){
+  refreshPreview();
+  preview.hidden=false;
   setHint('印刷したときの見た目です。［✕ 閉じる］か Esc で元の画面に戻ります。');
 }
 function closePreview(){ preview.hidden=true; setHint(); }
@@ -2153,6 +2267,8 @@ printMarginSel.addEventListener('change',()=>{
   printMarginMM=parseFloat(printMarginSel.value)||0;
   try{ localStorage.setItem(PRINT_MARGIN_KEY,String(printMarginMM)); }catch(e){}
   updatePageStyle();
+  /* プレビューを開いたまま余白を変えたときは、映している用紙も作り直します */
+  if(!preview.hidden)refreshPreview();
   setHint(printMarginMM>0
     ? '印刷の余白を '+printMarginMM+'mm にしました（次からも、この余白で印刷します）。用紙の端が切れるときは、余白を大きくしてください。'
     : '印刷の余白を「なし」にしました（次からも、この余白で印刷します）。プリンターによっては、用紙の端（現場名など）が切れることがあります。');
